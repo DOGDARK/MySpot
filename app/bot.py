@@ -12,8 +12,8 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.core.settings import Settings
 from app.instances import db_service
+from app.settings import Settings
 from app.utils import (
     AVAILABLE_FILTERS,
     get_back_to_main_keyboard,
@@ -320,7 +320,7 @@ async def show_place(user_id: int, chat_id: int, index: int):
     # Получаем категории и пожелания места из базы данных
 
     # Формируем текст с категориями и пожеланиями
-    categories_text, wishes_text = await db_service.get_categories_and_wishes()
+    categories_text, wishes_text = await db_service.get_categories_and_wishes(place)
     # Получаем геолокацию пользователя
     user = await db_service.get_user(user_id)
     distance_text = ""
@@ -623,7 +623,7 @@ async def show_places_main(callback: types.CallbackQuery):
         user_data[user_id]["places"] = places
 
         # Показываем первое место
-        await db_service.show_place(user_id, callback.message.chat.id, 0)
+        await show_place(user_id, callback.message.chat.id, 0)
 
     await callback.answer()
 
@@ -677,7 +677,7 @@ async def view_nearby_places(callback: types.CallbackQuery):
     user_data[user_id]["places"] = places
 
     # Показываем первое место
-    await db_service.show_place(user_id, callback.message.chat.id, 0)
+    await show_place(user_id, callback.message.chat.id, 0)
 
     await callback.answer()
 
@@ -728,7 +728,7 @@ async def view_recommended_places(callback: types.CallbackQuery):
     user_data[user_id]["places"] = places
 
     # Показываем первое место
-    await db_service.show_place(user_id, callback.message.chat.id, 0)
+    await show_place(user_id, callback.message.chat.id, 0)
 
     await callback.answer()
 
@@ -1592,7 +1592,7 @@ async def navigate_places(callback: types.CallbackQuery):
     user_data[user_id]["current_place_index"] = current_index
 
     # Показываем место
-    await db_service.show_place(user_id, callback.message.chat.id, current_index)
+    await show_place(user_id, callback.message.chat.id, current_index)
 
     await callback.answer()
 

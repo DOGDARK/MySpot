@@ -67,7 +67,7 @@ class DbService:
 
             if user:
                 # Храним фильтры как строку через запятую
-                filters = [3].split(",") if user[3] else []
+                filters = user[3].split(",") if user[3] else []
 
                 return {
                     "id": user[0],
@@ -100,14 +100,14 @@ class DbService:
         wishes_str = ",".join(wishes) if wishes else ""
 
         # Проверяем, существует ли пользователь
-        existing_user = self._repo.get_user(user_id)
+        existing_user = await self._repo.get_user(user_id)
 
         if existing_user:
             # Обновляем существующего пользователя
             await self._repo.update_user(user_id, categories_str, wishes_str, filters_str, latitude, longitude)
         else:
             # Создаем нового пользователя
-            await self._repo.create_user_user(user_id, categories_str, wishes_str, filters_str, latitude, longitude)
+            await self._repo.create_user(user_id, categories_str, wishes_str, filters_str, latitude, longitude)
 
     async def update_user_activity(self, user_id: int, last_button: str = None):
         """
@@ -116,7 +116,7 @@ class DbService:
 
         try:
             # Получаем текущие данные пользователя
-            user = await self._repo.get_user(user_id)
+            user = await self.get_user(user_id)
             has_geolocation = user is not None and user["latitude"] is not None and user["longitude"] is not None
 
             # Получаем количество просмотренных мест
@@ -184,11 +184,11 @@ class DbService:
             logger.error(f"Error updating user activity: {e}")
 
     async def get_user_filters(self, user_id: int) -> list[Any]:
-        user = await self._repo.get_user(user_id)
-        return user["filters"] if user and "filters" in user else []
+        user = await self.get_user(user_id)
+        return user["filters"] if user and user["filters"] else []
 
     async def save_user_filters(self, user_id: int, filters: list):
-        user = await self._repo.get_user(user_id)
+        user = await self.get_user(user_id)
         if user:
             categories = user["categories"]
             wishes = user["wishes"]
@@ -212,7 +212,7 @@ class DbService:
         logger.info("get_all_places")
 
         if not categories and not wishes and not user_filters:
-            return await self._repo.get_all_places()
+            return await self._repo.get_random_places()
 
         places = await self._repo.get_places_data()
 
@@ -327,7 +327,7 @@ class DbService:
                 current_viewed_state = {}
 
             # Получаем настройки пользователя
-            user = await self._repo.get_user(user_id)
+            user = await self.get_user(user_id)
             if not user:
                 return
 
@@ -359,7 +359,6 @@ class DbService:
                         place["latitude"],
                         place["longitude"],
                         viewed,
-                        user_id,
                     )
                 except Exception as e:
                     logger.error(f"[create_user_places_table] Ошибка вставки места {place.get('name')}: {e}")
@@ -385,7 +384,7 @@ class DbService:
         # Получаем данные пользователя
         logger.info(f"get_places_for_user {user_id=}")
 
-        user = await self._repo.get_user(user_id)
+        user = await self.get_user(user_id)
 
         user_lat = user["latitude"] if user else None
         user_lon = user["longitude"] if user else None

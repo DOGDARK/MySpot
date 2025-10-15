@@ -86,12 +86,10 @@ class DbRepo:
 
     async def get_user(self, user_id: int) -> Optional[asyncpg.Record]:
         async with self._pool.acquire() as conn:
-            res = await conn.fetchrow(
+            return await conn.fetchrow(
                 "SELECT * FROM users WHERE id = $1",
                 user_id,
             )
-            logger.info(f"{user_id=}, {res=}")
-            return res
 
     async def update_user(
         self,
@@ -302,7 +300,7 @@ class DbRepo:
                     description TEXT,
                     categories TEXT,
                     photo TEXT,
-                    rating REAL,
+                    rating TEXT,
                     latitude DOUBLE PRECISION,
                     longitude DOUBLE PRECISION,
                     viewed INTEGER DEFAULT 0
