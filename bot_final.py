@@ -162,7 +162,7 @@ async def process_place_bad(callback_query: types.CallbackQuery):
     conn = get_places_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT categories_1, categories_2 FROM places WHERE name = ? AND address = ?',
+        'SELECT categories_1, categories_2, website FROM places WHERE name = ? AND address = ?',
         (place.get('name'), place.get('address'))
     )
     place_details = cursor.fetchone()
@@ -170,23 +170,37 @@ async def process_place_bad(callback_query: types.CallbackQuery):
 
     categories_text = "Не указаны"
     wishes_text = "Не указаны"
+    website = ''
 
     if place_details:
         if place_details['categories_1']:
             categories_text = place_details['categories_1']
         if place_details['categories_2']:
             wishes_text = place_details['categories_2']
+        if place_details['website']:
+            website = place_details['website']
 
     # Формируем текст
-    place_text = f"""
-<b>Название места:</b> {place.get('name', 'Не указано')}
+    if website:
+        place_text = f"""
+    <b>Название места:</b> <a href="{website}">{place.get('name', 'Не указано')}</a>
 <b>Фильтры:</b> {place.get('categories', 'Не указаны')}
 <b>Категории:</b> {categories_text}
 <b>Пожелания:</b> {wishes_text}
 <b>Рейтинг:</b> {rating_text}
 <b>Описание:</b> {place.get('description', 'Описание отсутствует')}
 <b>Адрес:</b> {place.get('address', 'Адрес не указан')}
-    """
+        """
+    else:
+        place_text = f"""
+    <b>Название места:</b> {place.get('name', 'Не указано')}
+<b>Фильтры:</b> {place.get('categories', 'Не указаны')}
+<b>Категории:</b> {categories_text}
+<b>Пожелания:</b> {wishes_text}
+<b>Рейтинг:</b> {rating_text}
+<b>Описание:</b> {place.get('description', 'Описание отсутствует')}
+<b>Адрес:</b> {place.get('address', 'Адрес не указан')}
+        """
 
     photo_url = place.get('photo')
 
@@ -240,7 +254,6 @@ async def process_place_bad(callback_query: types.CallbackQuery):
 
 # получение данных пользователя
 def get_user(user_id: int) -> Optional[dict]:
-    print('get_user')
     try:
         conn = get_users_db_connection()
         cursor = conn.cursor()
@@ -279,7 +292,6 @@ def get_user(user_id: int) -> Optional[dict]:
 # сохранение пользователя
 def save_user(user_id: int, categories: list = set(), wishes: list = set(), filters: list = None,
               latitude: float = None, longitude: float = None):
-    print('save_user')
     conn = get_users_db_connection()
     cursor = conn.cursor()
     
@@ -454,7 +466,6 @@ def get_all_places(categories: set, wishes: set, user_filters: list = None,
     сортирует их по приоритету и возвращает сбалансированный топ-400.
     При подсчёте очков учитывается только совпадение первого фильтра места с фильтрами пользователя.
     """
-    print('get_all_places')
     conn = get_places_db_connection()
     cursor = conn.cursor()
 
@@ -624,7 +635,6 @@ def create_user_places_table(user_id: int, *_args, **_kwargs):
     сохраняя историю просмотров для оставшихся мест.
     Таблица хранится в БД users, название таблицы = user_{user_id}.
     """
-    print('create_user_places_table')
     conn = get_users_db_connection()
     cursor = conn.cursor()
     try:
@@ -768,7 +778,6 @@ def get_places_for_user(user_id: int, limit: int = 50, offset: int = 0, sort_by_
     sort_by_distance: если True, сортирует по расстоянию (если есть координаты пользователя).
     """
     # Получаем данные пользователя
-    print('get_places_for_user')
 
     user = get_user(user_id)
 
@@ -828,7 +837,6 @@ def mark_place_as_viewed(user_id: int, place_name: str):
     """
     Помечает место как просмотренное по названию
     """
-    print('mark_place_as_viewed')
     conn = get_users_db_connection()
     cursor = conn.cursor()
     
@@ -1032,8 +1040,8 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="Вперёд ➡️", callback_data="place_next")
         ],
         [
-            InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu"),
-            InlineKeyboardButton(text="❌ Место не подходит", callback_data="place_bad")
+            InlineKeyboardButton(text="❌ Место не подходит", callback_data="place_bad"),
+            InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")
         ]
     ])
 
@@ -1189,7 +1197,6 @@ async def delete_user_message(message: types.Message):
 
 async def update_or_send_message(chat_id: int, text: str, reply_markup=None, photo_url: str = None):
     """Обновить существующее сообщение или отправить новое"""
-    print('update_or_send')
     if chat_id in user_messages:
         try:
             if photo_url:
@@ -1276,7 +1283,6 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
 # Обработчики команд
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    print('cmd_start')
     user_id = message.from_user.id
     
     # Загружаем данные пользователя из базы данных
@@ -1326,7 +1332,6 @@ async def cmd_start(message: types.Message):
 # Обработчики главного меню
 @dp.callback_query(F.data == "view_places_main")
 async def show_places_main(callback: types.CallbackQuery):
-    print('show_places_main')
     user_id = callback.from_user.id
     user = get_user(user_id)
     
@@ -1416,7 +1421,6 @@ async def show_places_main(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "view_nearby_places")
 async def view_nearby_places(callback: types.CallbackQuery):
-    print('view_nearby')
     user_id = callback.from_user.id
     user_data[user_id]['current_place_index'] = 0
     user_data[user_id]['current_offset'] = 0
@@ -1466,7 +1470,6 @@ async def view_nearby_places(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "view_recommended_places")
 async def view_recommended_places(callback: types.CallbackQuery):
-    print('view_recommended')
     user_id = callback.from_user.id
     user_data[user_id]['current_place_index'] = 0
     user_data[user_id]['current_offset'] = 0
@@ -2028,9 +2031,7 @@ async def show_help_main(callback: types.CallbackQuery):
 
 
 async def show_place(user_id: int, chat_id: int, index: int):
-    print('show_place')
     places = user_data[user_id].get('places', [])
-    print(len(places))
     
     if not places or index >= len(places):
         return
@@ -2045,19 +2046,16 @@ async def show_place(user_id: int, chat_id: int, index: int):
     conn = get_places_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('SELECT categories_1, categories_2 FROM places WHERE name = ? AND address = ?', (place.get('name'), place.get('address')))
+    cursor.execute('SELECT website FROM places WHERE name = ? AND address = ?', (place.get('name'), place.get('address')))
     place_details = cursor.fetchone()
     conn.close()
     
     # Формируем текст с категориями и пожеланиями
-    categories_text = "Не указаны"
-    wishes_text = "Не указаны"
+    website = ''
     
     if place_details:
-        if place_details['categories_1']:
-            categories_text = place_details['categories_1']
-        if place_details['categories_2']:
-            wishes_text = place_details['categories_2']
+        if place_details['website']:
+            website = place_details['website']
     # Получаем геолокацию пользователя
     user = get_user(user_id)
     distance_text = ""
@@ -2090,16 +2088,22 @@ async def show_place(user_id: int, chat_id: int, index: int):
         except (ValueError, TypeError):
             # Если координаты некорректны, пропускаем
             pass
-    print(len(places))
-    place_text = f"""
-<b>Название места:</b> {place.get('name', 'Не указано')}
+
+    if website:
+        place_text = f"""
+<b>Название места:</b> <a href="{website}">{place.get('name', 'Не указано')}</a>
 <b>Фильтры:</b> {place.get('categories', 'Не указаны')}
-<b>Категории:</b> {categories_text}
-<b>Пожелания:</b> {wishes_text}
 <b>Рейтинг:</b> {rating_text}{distance_text}
 <b>Описание:</b> {place.get('description', 'Описание отсутствует')}
-<b>Адрес:</b> {place.get('address', 'Адрес не указан')}
     """
+    else:
+        place_text = f"""
+<b>Название места:</b> {place.get('name', 'Не указано')}
+<b>Фильтры:</b> {place.get('categories', 'Не указаны')}
+<b>Рейтинг:</b> {rating_text}{distance_text}
+<b>Описание:</b> {place.get('description', 'Описание отсутствует')}
+        """
+
     
     # Получаем ссылку на фото и проверяем ее валидность
     photo_url = place.get('photo')
@@ -2411,7 +2415,6 @@ async def back_to_main_menu(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.in_(["place_prev", "place_next"]))
 async def navigate_places(callback: types.CallbackQuery):
-    print('navigate')
     user_id = callback.from_user.id
     current_index = user_data[user_id].get('current_place_index', 0)
     places = user_data[user_id].get('places', [])
@@ -2476,7 +2479,6 @@ async def navigate_places(callback: types.CallbackQuery):
 # Обработчик отмены состояния фильтра
 @dp.callback_query(F.data == "show_filters_main", FilterStates.waiting_for_filter_name)
 async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext):
-    print('-----------')
     user_id = callback.from_user.id
     user_filters = get_user_filters(user_id)
     
