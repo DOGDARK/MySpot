@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton,  FSInputFile
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from typing import Dict, List, Optional
@@ -19,8 +19,9 @@ import pytz
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = "8295800638:AAEyodgPbWEbCn5L0CFdMmDv1f2FN1hf2DM"
+BOT_TOKEN = ""
 MODERATORS_CHAT_ID = -4821742989
+START_IMG_PATH = "data/start_img.jpg"
 
 # Инициализация бота
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -1033,7 +1034,7 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu"),
-            InlineKeyboardButton(text="❌ Место не подходит", callback_data="place_bad")
+            InlineKeyboardButton(text="❌ С местом что-то не так", callback_data="place_bad")
         ]
     ])
 
@@ -1297,7 +1298,7 @@ async def cmd_start(message: types.Message):
             'current_place_index': 0
             }
 
-    
+    photo = FSInputFile(START_IMG_PATH)
     welcome_text = """
 🎉 <b>Добро пожаловать в Myspot!</b>
 
@@ -1317,7 +1318,8 @@ async def cmd_start(message: types.Message):
     await update_or_send_message(
         chat_id=message.chat.id,
         text=welcome_text,
-        reply_markup=get_main_keyboard()
+        reply_markup=get_main_keyboard(),
+        photo_url=photo
     )
     
     # Потом удаляем сообщение пользователя с командой start
