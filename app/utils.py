@@ -104,6 +104,25 @@ AVAILABLE_FILTERS = [
 user_data: dict[int, dict[Any, Any]] = {}
 
 
+def generate_place_text(
+    place: dict[Any, Any],
+    website: str,
+    rating_text: str,
+    distance_text: str | None = None,
+) -> str:
+    place_name = (
+        f"<a href='{website}'>{place.get('name', 'Не указано')}</a>" if website else place.get("name", "Не указано")
+    )
+    rating = rating_text + distance_text if distance_text else rating_text
+    return f"""
+    <b>Название места:</b> {place_name}
+    <b>Фильтры:</b> {place.get("categories", "Не указаны")}
+    <b>Рейтинг:</b> {rating}
+    <b>Описание:</b> {place.get("description", "Описание отсутствует")}
+    <b>Адрес:</b> {place.get("address", "Адрес не указан")}
+    """
+
+
 # Клавиатуры
 
 
@@ -241,7 +260,7 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu"),
-                InlineKeyboardButton(text="❌ Место не подходит", callback_data="place_bad"),
+                InlineKeyboardButton(text="❌ С местом что-то не так", callback_data="place_bad"),
             ],
         ]
     )

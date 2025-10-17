@@ -77,7 +77,7 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             return await conn.fetchrow(
                 """
-                SELECT categories_1, categories_2 FROM places 
+                SELECT categories_1, categories_2, website FROM places 
                 WHERE name = $1 AND address = $2
                 """,
                 name,

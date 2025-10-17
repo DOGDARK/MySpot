@@ -8,7 +8,7 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -16,6 +16,7 @@ from app.instances import db_service
 from app.settings import Settings
 from app.utils import (
     AVAILABLE_FILTERS,
+    generate_place_text,
     get_back_to_main_keyboard,
     get_categories_keyboard,
     get_filters_keyboard,
@@ -28,6 +29,7 @@ from app.utils import (
 logger = logging.getLogger(__name__)
 
 MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
+START_IMG_PATH = "app/data/start_img.jpg"
 
 
 bot = Bot(token=Settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -65,18 +67,10 @@ async def process_place_bad(callback_query: types.CallbackQuery):
     rating_text = f"⭐ {rating}/5" if rating else "⭐ Рейтинг не указан"
 
     # Получаем категории и пожелания места из базы данных
-    categories_text, wishes_text = await db_service.get_categories_and_wishes(place)
+    categories_text, wishes_text, website = await db_service.get_categories_and_wishes(place)
 
     # Формируем текст
-    place_text = f"""
-<b>Название места:</b> {place.get("name", "Не указано")}
-<b>Фильтры:</b> {place.get("categories", "Не указаны")}
-<b>Категории:</b> {categories_text}
-<b>Пожелания:</b> {wishes_text}
-<b>Рейтинг:</b> {rating_text}
-<b>Описание:</b> {place.get("description", "Описание отсутствует")}
-<b>Адрес:</b> {place.get("address", "Адрес не указан")}
-    """
+    place_text = generate_place_text(place, website, rating_text)
 
     photo_url = place.get("photo")
 
@@ -320,9 +314,10 @@ async def show_place(user_id: int, chat_id: int, index: int):
     # Получаем категории и пожелания места из базы данных
 
     # Формируем текст с категориями и пожеланиями
-    categories_text, wishes_text = await db_service.get_categories_and_wishes(place)
+    categories_text, wishes_text, website = await db_service.get_categories_and_wishes(place)
     # Получаем геолокацию пользователя
     user = await db_service.get_user(user_id)
+
     distance_text = ""
 
     if user and user["latitude"] and user["longitude"] and place.get("latitude") and place.get("longitude"):
@@ -354,15 +349,7 @@ async def show_place(user_id: int, chat_id: int, index: int):
             # Если координаты некорректны, пропускаем
             pass
     logger.info(len(places))
-    place_text = f"""
-<b>Название места:</b> {place.get("name", "Не указано")}
-<b>Фильтры:</b> {place.get("categories", "Не указаны")}
-<b>Категории:</b> {categories_text}
-<b>Пожелания:</b> {wishes_text}
-<b>Рейтинг:</b> {rating_text}{distance_text}
-<b>Описание:</b> {place.get("description", "Описание отсутствует")}
-<b>Адрес:</b> {place.get("address", "Адрес не указан")}
-    """
+    place_text = generate_place_text(place, website, rating_text, distance_text)
 
     # Получаем ссылку на фото и проверяем ее валидность
     photo_url = place.get("photo")
@@ -497,6 +484,7 @@ async def cmd_start(message: types.Message):
             "current_place_index": 0,
         }
 
+    photo = FSInputFile(START_IMG_PATH)
     welcome_text = """
 🎉 <b>Добро пожаловать в Myspot!</b>
 
@@ -513,7 +501,9 @@ async def cmd_start(message: types.Message):
     """
 
     # Сначала отправляем приветственное сообщение
-    await update_or_send_message(chat_id=message.chat.id, text=welcome_text, reply_markup=get_main_keyboard())
+    await update_or_send_message(
+        chat_id=message.chat.id, text=welcome_text, reply_markup=get_main_keyboard(), photo_url=photo
+    )
 
     # Потом удаляем сообщение пользователя с командой start
     await delete_user_message(message)
@@ -1026,13 +1016,6 @@ async def confirm_filters(callback: types.CallbackQuery):
 """
 
     try:
-        # Удаляем сообщение о процессе
-        if processing_message_id:
-            try:
-                await bot.delete_message(chat_id=callback.message.chat.id, message_id=processing_message_id)
-            except Exception as e:
-                logger.error(f"Error while deleting msh {e}")
-
         await callback.message.edit_text(
             text=confirmation_text,
             reply_markup=InlineKeyboardMarkup(
@@ -1160,10 +1143,12 @@ async def handle_location(message: types.Message):
     latitude = message.location.latitude
     longitude = message.location.longitude
 
+    print(latitude, longitude)
+
     # Сохраняем геолокацию пользователя
     user = await db_service.get_user(user_id)
     if user:
-        db_service.save_user(
+        await db_service.save_user(
             user_id=user_id,
             categories=user["categories"],
             wishes=user["wishes"],
@@ -1425,7 +1410,7 @@ async def confirm_wishes(callback: types.CallbackQuery):
     user = await db_service.get_user(user_id)
 
     # Сохраняем пользователя в базу данных с сохранением геопозиции
-    db_service.save_user(
+    await db_service.save_user(
         user_id=user_id,
         categories=list(user_data[user_id]["selected_categories"]),
         wishes=list(user_data[user_id]["selected_wishes"]),
@@ -1434,7 +1419,7 @@ async def confirm_wishes(callback: types.CallbackQuery):
         longitude=user["longitude"] if user else None,  # Сохраняем геопозицию
     )
 
-    db_service.create_user_places_table(user_id)
+    await db_service.create_user_places_table(user_id)
 
     confirmation_text = f"""
 <b>Настройки сохранены!</b>
@@ -1447,13 +1432,6 @@ async def confirm_wishes(callback: types.CallbackQuery):
     """
 
     try:
-        # Удаляем сообщение о процессе
-        if processing_message_id:
-            try:
-                await bot.delete_message(chat_id=callback.message.chat.id, message_id=processing_message_id)
-            except Exception as e:
-                logger.error(f"Error while deleting msg {e}")
-
         await callback.message.edit_text(
             text=confirmation_text,
             reply_markup=InlineKeyboardMarkup(
@@ -1669,7 +1647,7 @@ async def main():
         scheduler.add_job(db_service.reset_viewed_by_timer, CronTrigger(hour=4, minute=0))
         scheduler.start()
         logger.info("Starting single-message bot with database support...")
-        logger.info("Планировщик задач:", scheduler.get_jobs())
+        logger.info(f"Планировщик задач:, {scheduler.get_jobs()}")
         await dp.start_polling(bot)
     finally:
         await db_service.close_db()

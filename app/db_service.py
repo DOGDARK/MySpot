@@ -51,20 +51,22 @@ class DbService:
         row = await self._repo.get_categories_and_wishes(name, address)
         categories_text = "Не указаны"
         wishes_text = "Не указаны"
+        website = ""
 
         if row:
             if row["categories_1"]:
                 categories_text = row["categories_1"]
             if row["categories_2"]:
                 wishes_text = row["categories_2"]
+            if row["website"]:
+                website = row["website"]
 
-        return categories_text, wishes_text
+        return categories_text, wishes_text, website
 
     async def get_user(self, user_id: int) -> Optional[dict]:
         logger.info("get_user")
         try:
             user = await self._repo.get_user(user_id)
-
             if user:
                 # Храним фильтры как строку через запятую
                 filters = user[3].split(",") if user[3] else []
@@ -458,7 +460,7 @@ class DbService:
             logger.error(f"Ошибка при сбросе viewed: {e}")
 
     def _sort_places_by_distance(
-        places: list[dict[Any, Any]], user_lat: float, user_lon: float
+        self, places: list[dict[Any, Any]], user_lat: float, user_lon: float
     ) -> list[dict[Any, Any]]:
         """
         Сортирует места по расстоянию от пользователя
