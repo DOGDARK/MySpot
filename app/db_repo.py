@@ -131,6 +131,7 @@ class DbRepo:
         longitude: float = None,
     ) -> None:
         async with self._pool.acquire() as conn:
+
             await conn.execute(
                 """
                 INSERT INTO users (
@@ -215,6 +216,14 @@ class DbRepo:
                 last_buttons,
                 total_activities,
                 user_id,
+            )
+
+    async def user_count(self) -> None:
+        async with self._pool.acquire as conn:
+            return await conn.fetchval(
+                """
+            SELECT COUNT(*) FROM users
+                """
             )
 
     async def create_user_log(

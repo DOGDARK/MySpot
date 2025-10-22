@@ -13,4 +13,4 @@ class Settings:
     POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
 
     BOT_TOKEN = os.getenv("BOT_TOKEN")
-    MODERATORS_CHAT_ID = int(os.getenv("MODERATORS_CHAT_ID"), 0)
+    MODERATORS_CHAT_ID = int(os.getenv("MODERATORS_CHAT_ID", 0))

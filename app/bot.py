@@ -461,7 +461,8 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
 async def cmd_start(message: types.Message):
     logger.info("cmd_start")
     user_id = message.from_user.id
-
+    chat_id = message.chat.id
+    print(chat_id)
     # Загружаем данные пользователя из базы данных
     user_db_data = await db_service.get_user(user_id)
     if user_db_data:
@@ -503,6 +504,30 @@ async def cmd_start(message: types.Message):
 
     # Потом удаляем сообщение пользователя с командой start
     await delete_user_message(message)
+
+
+@dp.message(Command("stats"))
+async def daily_report(message: types.Message, by_timer = False):
+    chat_id = message.chat.id
+    if by_timer:
+        stats = db_service.user_count
+        stat_message = f"""
+<b>Статистика пользователей<b>
+    Сегодня {stats[0]} новых пользователей
+    Всего {stats[1]} пользователей
+        """
+        bot.send_message(chat_id=..., text=stat_message, parse_mode='HTML')
+        db_service.change_user_count(reset=True)
+    else: 
+        if chat_id == ...:
+            stats = db_service.user_count
+            stat_message = f"""
+    <b>Статистика пользователей<b>
+        Сегодня {stats[0]} новых пользователей
+        Всего {stats[1]} пользователей
+            """
+            bot.send_message(chat_id=chat_id, text=stat_message, parse_mode='HTML')
+
 
 
 # Обработчики главного меню
@@ -1467,6 +1492,7 @@ async def confirm_wishes(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "main_menu")
 async def back_to_main_menu(callback: types.CallbackQuery):
+    photo = START_IMG_PATH
     main_text = """
     🎉 <b>Добро пожаловать в MySpot!</b>
 
@@ -1484,14 +1510,14 @@ async def back_to_main_menu(callback: types.CallbackQuery):
 
     try:
         # Пытаемся отредактировать сообщение
-        await callback.message.edit_text(text=main_text, reply_markup=get_main_keyboard())
+        await update_or_send_message(chat_id=chat_id, text=main_text, reply_markup=get_main_keyboard(), photo_url=photo)
     except Exception as e:
         # Если не удалось отредактировать (например, сообщение с фото), отправляем новое
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
 
         # Сначала отправляем новое сообщение
-        await update_or_send_message(chat_id=chat_id, text=main_text, reply_markup=get_main_keyboard())
+        await update_or_send_message(chat_id=chat_id, text=main_text, reply_markup=get_main_keyboard(), photo_url=photo)
 
         # Затем пытаемся удалить старое сообщение
         try:
@@ -1641,6 +1667,7 @@ async def main():
         await db_service.create_tables()
         scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
         scheduler.add_job(db_service.reset_viewed_by_timer, CronTrigger(hour=4, minute=0))
+        scheduler.add_job(daily_report(by_timer=True), CronTrigger(hour=0, minute=0))
         scheduler.start()
         logger.info("Starting single-message bot with database support...")
         logger.info(f"Планировщик задач:, {scheduler.get_jobs()}")
