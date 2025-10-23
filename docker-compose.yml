@@ -13,7 +13,14 @@ services:
       - ${PWD}/volumes/postgres:/var/lib/postgresql/18/docker
     networks:
       - service_network
-  
+
+  redis:
+    image: redis:latest
+    ports:
+      - '6379:6379'
+    networks:
+      - service_network
+
 networks:
   service_network:
     driver: bridge

@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Any, Optional
 
-from app.db_repo import DbRepo
+from app.repositories.db_repo import DbRepo
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +19,8 @@ class DbService:
             cls._instance._repo = repo
         return cls._instance
 
-    @property
-    def repo(self):
-        return self._repo
-
     async def init_db(self, user, password, database, host, port, min_size=10, max_size=30) -> None:
-        await self._repo.init(user, password, database, host, port, min_size=10, max_size=30)
+        await self._repo.init(user, password, database, host, port, min_size, max_size)
 
     async def close_db(self) -> None:
         await self._repo.close()

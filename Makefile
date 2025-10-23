@@ -16,3 +16,9 @@ down:
 
 build:
 	docker build -t my_spot:latest .
+
+up_local:
+	docker compose up -db
+
+down_local:
+	docker compose down

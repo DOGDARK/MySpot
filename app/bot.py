@@ -12,9 +12,9 @@ from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarku
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.instances import db_service
-from app.settings import Settings
-from app.utils import (
+from app.core.instances import db_service, redis_service
+from app.core.settings import Settings
+from app.core.utils import (
     AVAILABLE_FILTERS,
     generate_place_text,
     get_back_to_main_keyboard,
@@ -49,8 +49,8 @@ class FilterStates(StatesGroup):
 async def process_place_bad(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    places = user_data[user_id].get("places", [])
-    index = user_data[user_id].get("current_place_index", 0)
+    places = redis_service.get_user_data(user_id).get("places", [])
+    index = redis_service.get_user_data(user_id).get("current_place_index", 0)
 
     if not places or index >= len(places):
         await callback_query.answer("Ошибка: не удалось найти место для отправки.", show_alert=True)
@@ -211,8 +211,8 @@ async def reset_all_categories(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
     # Сбрасываем все категории
-    if user_id in user_data:
-        user_data[user_id]["selected_categories"] = set()
+    if user_id in redis_service.get_keys("data:*"):
+        redis_service.set_user_data_params(user_id, {"selected_categories": set()})
 
     # Обновляем сообщение
     categories_text = """
@@ -256,8 +256,8 @@ async def reset_all_wishes(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
     # Сбрасываем все пожелания
-    if user_id in user_data:
-        user_data[user_id]["selected_wishes"] = set()
+    if user_id in redis_service.get_keys("data:*"):
+        redis_service.set_user_data_params(user_id, {"selected_wishes": set()})
 
     # Обновляем сообщение
     wishes_text = """
@@ -294,9 +294,9 @@ async def reset_all_wishes(callback: types.CallbackQuery):
 
 
 async def show_place(user_id: int, chat_id: int, index: int):
-    logger.info("show_place")
-    places = user_data[user_id].get("places", [])
-    logger.info(len(places))
+    logger.info(f"show_place {user_id=}")
+    places = redis_service.get_user_data(user_id).get("places", [])
+    logger.info(f"{len(places)=}")
 
     if not places or index >= len(places):
         return
@@ -466,19 +466,25 @@ async def cmd_start(message: types.Message):
     user_db_data = await db_service.get_user(user_id)
     if user_db_data:
         # Восстанавливаем настройки из базы данных
-        user_data[user_id] = {
-            "selected_categories": set(user_db_data["categories"]),
-            "selected_wishes": set(user_db_data["wishes"]),
-            "current_place_index": 0,
-        }
+        redis_service.set_user_data_params(
+            user_id,
+            {
+                "selected_categories": set(user_db_data["categories"]),
+                "selected_wishes": set(user_db_data["wishes"]),
+                "current_place_index": 0,
+            },
+        )
     else:
         # Создаем нового пользователя в памяти (но не в базе до выбора категорий)
         await db_service.save_user(user_id)
-        user_data[user_id] = {
-            "selected_categories": set(),
-            "selected_wishes": set(),
-            "current_place_index": 0,
-        }
+        redis_service.set_user_data_params(
+            user_id,
+            {
+                "selected_categories": set(),
+                "selected_wishes": set(),
+                "current_place_index": 0,
+            },
+        )
 
     photo = FSInputFile(START_IMG_PATH)
     welcome_text = """
@@ -602,11 +608,11 @@ async def show_places_main(callback: types.CallbackQuery):
             await update_or_send_message(chat_id=chat_id, text=choice_text, reply_markup=keyboard)
     else:
         # Если нет геолокации, показываем обычные рекомендации
-        user_data[user_id]["current_place_index"] = 0
-        user_data[user_id]["current_offset"] = 0
+        redis_service.set_user_data_params(user_id, {"current_place_index": 0})
+        redis_service.set_user_data_params(user_id, {"current_offset": 0})
 
         # Сохраняем места для пользователя
-        user_data[user_id]["places"] = places
+        redis_service.set_user_data_params(user_id, {"places": places})
 
         # Показываем первое место
         await show_place(user_id, callback.message.chat.id, 0)
@@ -621,8 +627,8 @@ async def show_places_main(callback: types.CallbackQuery):
 async def view_nearby_places(callback: types.CallbackQuery):
     logger.info("view_nearby")
     user_id = callback.from_user.id
-    user_data[user_id]["current_place_index"] = 0
-    user_data[user_id]["current_offset"] = 0
+    redis_service.set_user_data_params(user_id, {"current_place_index": 0})
+    redis_service.set_user_data_params(user_id, {"current_offset": 0})
 
     # Получаем места с сортировкой по расстоянию
     places = await db_service.get_places_for_user(user_id, limit=400, offset=0, sort_by_distance=True)
@@ -660,7 +666,7 @@ async def view_nearby_places(callback: types.CallbackQuery):
         return
 
     # Сохраняем места для пользователя
-    user_data[user_id]["places"] = places
+    redis_service.set_user_data_params(user_id, {"places": places})
 
     # Показываем первое место
     await show_place(user_id, callback.message.chat.id, 0)
@@ -672,8 +678,8 @@ async def view_nearby_places(callback: types.CallbackQuery):
 async def view_recommended_places(callback: types.CallbackQuery):
     logger.info("view_recommended")
     user_id = callback.from_user.id
-    user_data[user_id]["current_place_index"] = 0
-    user_data[user_id]["current_offset"] = 0
+    redis_service.set_user_data_params(user_id, {"current_place_index": 0})
+    redis_service.set_user_data_params(user_id, {"current_offset": 0})
 
     # Получаем места без сортировки по расстоянию
     places = await db_service.get_places_for_user(user_id, limit=400, offset=0, sort_by_distance=False)
@@ -711,7 +717,7 @@ async def view_recommended_places(callback: types.CallbackQuery):
         return
 
     # Сохраняем места для пользователя
-    user_data[user_id]["places"] = places
+    redis_service.set_user_data_params(user_id, {"places": places})
 
     # Показываем первое место
     await show_place(user_id, callback.message.chat.id, 0)
@@ -1482,23 +1488,11 @@ async def back_to_main_menu(callback: types.CallbackQuery):
     Выберите действие из меню ниже 👇
         """
 
-    try:
-        # Пытаемся отредактировать сообщение
-        await callback.message.edit_text(text=main_text, reply_markup=get_main_keyboard())
-    except Exception as e:
-        # Если не удалось отредактировать (например, сообщение с фото), отправляем новое
-        logger.error(f"Error editing message: {e}")
-        chat_id = callback.message.chat.id
+    photo = FSInputFile(START_IMG_PATH)
 
-        # Сначала отправляем новое сообщение
-        await update_or_send_message(chat_id=chat_id, text=main_text, reply_markup=get_main_keyboard())
+    chat_id = callback.message.chat.id
 
-        # Затем пытаемся удалить старое сообщение
-        try:
-            await bot.delete_message(chat_id=chat_id, message_id=callback.message.message_id)
-        except Exception as delete_error:
-            logger.error(f"Error deleting old message: {delete_error}")
-
+    await update_or_send_message(chat_id=chat_id, text=main_text, reply_markup=get_main_keyboard(), photo_url=photo)
     await callback.answer()
 
     # Обновляем время последней активности
@@ -1629,8 +1623,12 @@ async def delete_all_messages(message: types.Message):
 
 # Запуск бота
 async def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     try:
-        logging.basicConfig(level=logging.INFO)
         await db_service.init_db(
             Settings.POSTGRES_USER,
             Settings.POSTGRES_PASSWORD,
@@ -1646,6 +1644,7 @@ async def main():
         logger.info(f"Планировщик задач:, {scheduler.get_jobs()}")
         await dp.start_polling(bot)
     finally:
+        logger.info("Error while starting, closing database...")
         await db_service.close_db()
 
 

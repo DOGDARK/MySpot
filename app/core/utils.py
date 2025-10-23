@@ -2,7 +2,7 @@ from typing import Any
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.instances import db_service
+from app.core.instances import db_service
 
 AVAILABLE_FILTERS = [
     "Кафе",
