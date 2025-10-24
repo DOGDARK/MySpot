@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from math import atan2, cos, radians, sin, sqrt
 
 import pytz
 from aiogram import Bot, Dispatcher, F, types
@@ -23,7 +24,6 @@ from app.core.utils import (
     get_main_keyboard,
     get_places_keyboard,
     get_wishes_keyboard,
-    user_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,8 +49,9 @@ class FilterStates(StatesGroup):
 async def process_place_bad(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
-    places = redis_service.get_user_data(user_id).get("places", [])
-    index = redis_service.get_user_data(user_id).get("current_place_index", 0)
+    user_data = redis_service.get_user_data(user_id)
+    places = user_data.get("places", [])
+    index = user_data.get("current_place_index", 0)
 
     if not places or index >= len(places):
         await callback_query.answer("Ошибка: не удалось найти место для отправки.", show_alert=True)
@@ -212,7 +213,7 @@ async def reset_all_categories(callback: types.CallbackQuery):
 
     # Сбрасываем все категории
     if user_id in redis_service.get_keys("data:*"):
-        redis_service.set_user_data_params(user_id, {"selected_categories": set()})
+        redis_service.set_user_data_params(user_id, {"selected_categories": []})
 
     # Обновляем сообщение
     categories_text = """
@@ -257,7 +258,7 @@ async def reset_all_wishes(callback: types.CallbackQuery):
 
     # Сбрасываем все пожелания
     if user_id in redis_service.get_keys("data:*"):
-        redis_service.set_user_data_params(user_id, {"selected_wishes": set()})
+        redis_service.set_user_data_params(user_id, {"selected_wishes": []})
 
     # Обновляем сообщение
     wishes_text = """
@@ -318,7 +319,6 @@ async def show_place(user_id: int, chat_id: int, index: int):
 
     if user and user["latitude"] and user["longitude"] and place.get("latitude") and place.get("longitude"):
         try:
-            from math import atan2, cos, radians, sin, sqrt
 
             user_lat = user["latitude"]
             user_lon = user["longitude"]
@@ -466,22 +466,22 @@ async def cmd_start(message: types.Message):
     user_db_data = await db_service.get_user(user_id)
     if user_db_data:
         # Восстанавливаем настройки из базы данных
-        redis_service.set_user_data_params(
+        redis_service.set_user_data(
             user_id,
             {
-                "selected_categories": set(user_db_data["categories"]),
-                "selected_wishes": set(user_db_data["wishes"]),
+                "selected_categories": list(set(user_db_data["categories"])),
+                "selected_wishes": list(set(user_db_data["wishes"])),
                 "current_place_index": 0,
             },
         )
     else:
         # Создаем нового пользователя в памяти (но не в базе до выбора категорий)
         await db_service.save_user(user_id)
-        redis_service.set_user_data_params(
+        redis_service.set_user_data(
             user_id,
             {
-                "selected_categories": set(),
-                "selected_wishes": set(),
+                "selected_categories": [],
+                "selected_wishes": [],
                 "current_place_index": 0,
             },
         )
@@ -1246,13 +1246,15 @@ async def handle_category_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     category = callback.data
 
-    if user_id not in user_data:
-        user_data[user_id] = {"selected_categories": set(), "selected_wishes": set()}
+    if user_id not in redis_service.get_keys("data:*"):
+        redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
 
-    if category in user_data[user_id]["selected_categories"]:
-        user_data[user_id]["selected_categories"].remove(category)
+    user_data = redis_service.get_user_data(user_id)
+    if category in user_data["selected_categories"]:
+        user_data["selected_categories"].remove(category)
     else:
-        user_data[user_id]["selected_categories"].add(category)
+        user_data["selected_categories"].append(category)
+    redis_service.set_user_data(user_id, user_data)
 
     # Обновляем сообщение с новым состоянием кнопок
     categories_text = """
@@ -1350,13 +1352,17 @@ async def handle_wish_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     wish = callback.data
 
-    if user_id not in user_data:
-        user_data[user_id] = {"selected_categories": set(), "selected_wishes": set()}
+    if user_id not in redis_service.get_keys("data:*"):
+        redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
 
-    if wish in user_data[user_id]["selected_wishes"]:
-        user_data[user_id]["selected_wishes"].remove(wish)
+    user_data = redis_service.get_user_data(user_id)
+
+    if wish in user_data["selected_wishes"]:
+        user_data["selected_wishes"].remove(wish)
     else:
-        user_data[user_id]["selected_wishes"].add(wish)
+        user_data["selected_wishes"].append(wish)
+
+    redis_service.set_user_data(user_id, user_data)
 
     # Обновляем сообщение
     wishes_text = """
@@ -1396,8 +1402,9 @@ async def handle_wish_selection(callback: types.CallbackQuery):
 async def confirm_wishes(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
-    categories_count = len(user_data[user_id]["selected_categories"])
-    wishes_count = len(user_data[user_id]["selected_wishes"])
+    user_data = redis_service.get_user_data(user_id)
+    categories_count = len(user_data["selected_categories"])
+    wishes_count = len(user_data["selected_wishes"])
 
     # Показываем сообщение о процессе подбора
     processing_text = """
@@ -1414,8 +1421,8 @@ async def confirm_wishes(callback: types.CallbackQuery):
     # Сохраняем пользователя в базу данных с сохранением геопозиции
     await db_service.save_user(
         user_id=user_id,
-        categories=list(user_data[user_id]["selected_categories"]),
-        wishes=list(user_data[user_id]["selected_wishes"]),
+        categories=list(user_data["selected_categories"]),
+        wishes=list(user_data["selected_wishes"]),
         filters=user["filters"] if user else [],  # Сохраняем текущие фильтры
         latitude=user["latitude"] if user else None,  # Сохраняем геопозицию
         longitude=user["longitude"] if user else None,  # Сохраняем геопозицию
@@ -1503,8 +1510,9 @@ async def back_to_main_menu(callback: types.CallbackQuery):
 async def navigate_places(callback: types.CallbackQuery):
     logger.info("navigate")
     user_id = callback.from_user.id
-    current_index = user_data[user_id].get("current_place_index", 0)
-    places = user_data[user_id].get("places", [])
+    user_data = redis_service.get_user_data(user_id)
+    current_index = user_data.get("current_place_index", 0)
+    places = user_data.get("places", [])
 
     if not places:
         await callback.answer("Нет мест для показа")
@@ -1557,7 +1565,7 @@ async def navigate_places(callback: types.CallbackQuery):
             await callback.answer()
             return
 
-    user_data[user_id]["current_place_index"] = current_index
+    redis_service.set_user_data_params(user_id, {"current_place_index": current_index})
 
     # Показываем место
     await show_place(user_id, callback.message.chat.id, current_index)

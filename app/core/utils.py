@@ -2,7 +2,7 @@ from typing import Any
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.core.instances import db_service
+from app.core.instances import db_service, redis_service
 
 AVAILABLE_FILTERS = [
     "Кафе",
@@ -101,7 +101,6 @@ AVAILABLE_FILTERS = [
     "Водная база",
 ]
 
-user_data: dict[int, dict[Any, Any]] = {}
 
 
 def generate_place_text(
@@ -195,7 +194,7 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_categories_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    selected_categories = user_data.get(user_id, {}).get("selected_categories", set())
+    selected_categories = redis_service.get_user_data(user_id).get("selected_categories", [])
     buttons = []
 
     categories = [
@@ -223,7 +222,7 @@ def get_categories_keyboard(user_id: int) -> InlineKeyboardMarkup:
 
 
 def get_wishes_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    selected_wishes = user_data.get(user_id, {}).get("selected_wishes", set())
+    selected_wishes = redis_service.get_user_data(user_id).get("selected_wishes", [])
     buttons = []
 
     wishes = [
