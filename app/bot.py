@@ -395,7 +395,8 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
 async def cmd_start(message: types.Message):
     logger.info("cmd_start")
     user_id = message.from_user.id
-
+    chat_id = message.chat.id
+    print(chat_id)
     # Загружаем данные пользователя из базы данных
     user_db_data = await db_service.get_user(user_id)
     if user_db_data:
@@ -429,6 +430,30 @@ async def cmd_start(message: types.Message):
 
     # Потом удаляем сообщение пользователя с командой start
     await delete_user_message(message)
+
+
+@dp.message(Command("stats"))
+async def daily_report(message: types.Message = None, by_timer = False):
+    chat_id = message.chat.id
+    if by_timer:
+        stats = db_service.user_count
+        stat_message = f"""
+<b>Статистика пользователей<b>
+    Сегодня {stats[0]} новых пользователей
+    Всего {stats[1]} пользователей
+        """
+        bot.send_message(chat_id=MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
+        db_service.change_user_count(reset=True)
+    else: 
+        if chat_id == MODERATORS_CHAT_ID:
+            stats = await db_service.user_counts()
+            stat_message = f"""
+        <b>Статистика пользователей</b>
+        Сегодня {stats[0]} новых пользователей
+        Всего {stats[1]} пользователей
+            """
+            await bot.send_message(chat_id=MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
+
 
 
 # Обработчики главного меню
@@ -1230,6 +1255,7 @@ async def main():
         await db_service.create_tables()
         scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
         scheduler.add_job(db_service.reset_viewed_by_timer, CronTrigger(hour=4, minute=0))
+        scheduler.add_job(daily_report, CronTrigger(hour=0, minute=0), kwargs={"by_timer": True})
         scheduler.start()
         logger.info("Starting single-message bot with database support...")
         logger.info(f"Планировщик задач:, {scheduler.get_jobs()}")

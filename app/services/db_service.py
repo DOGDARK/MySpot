@@ -12,6 +12,7 @@ class DbService:
 
     def __init__(self, repo: DbRepo) -> None:
         self._repo = repo
+        self.user_count = 0
 
     def __new__(cls, repo=None):
         if cls._instance is None:
@@ -41,6 +42,16 @@ class DbService:
             if row
             else None
         )
+    
+    async def change_user_count(self, reset = False):
+        if reset:
+            self.user_count = 0
+        else:
+            self.user_count += 1
+
+    async def user_counts(self):
+        total = await self._repo.user_count()
+        return [self.user_count, total]
 
     async def get_categories_and_wishes(self, place: dict[Any, Any]) -> tuple[str, str]:
         name, address = place.get("name"), place.get("adress")
@@ -81,6 +92,7 @@ class DbService:
             logger.error(f"Database error in get_user: {e}")
             return None
 
+
     async def save_user(
         self,
         user_id: int,
@@ -106,6 +118,8 @@ class DbService:
         else:
             # Создаем нового пользователя
             await self._repo.create_user(user_id, categories_str, wishes_str, filters_str, latitude, longitude)
+            await self.change_user_count()
+
 
     async def update_user_activity(self, user_id: int, last_button: str = None):
         """
@@ -177,6 +191,7 @@ class DbService:
                     None,
                     None,
                 )
+                await self.change_user_count()
 
         except Exception as e:
             logger.error(f"Error updating user activity: {e}")
