@@ -13,18 +13,23 @@ from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarku
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.core.instances import db_service, redis_service
-from app.core.settings import Settings
-from app.core.utils import (
-    AVAILABLE_FILTERS,
-    generate_place_text,
+from app.bot_utils.keyboards import (
+    get_back_to_filters_keyboard,
     get_back_to_main_keyboard,
     get_categories_keyboard,
+    get_change_keyboard,
     get_filters_keyboard,
     get_main_keyboard,
     get_places_keyboard,
+    get_reset_geolocation_keyboard,
+    get_update_keyboard,
+    get_view_places_keyboard,
     get_wishes_keyboard,
 )
+from app.bot_utils.msg_constants import MsgConstants
+from app.bot_utils.utils import AVAILABLE_FILTERS, generate_place_text
+from app.core.instances import db_service, redis_service
+from app.core.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -117,44 +122,15 @@ async def reset_location(callback: types.CallbackQuery):
     # ПОЛНОСТЬЮ пересоздаем таблицу мест (так как изменилась геолокация)
     await db_service.create_user_places_table(user_id)
 
-    reset_text = """
-    🗺️ <b>Геолокация сброшена</b>
-
-    Ваше местоположение удалено из системы.
-    """
-
     try:
         await callback.message.edit_text(
-            text=reset_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="🗺️ Указать геолокацию",
-                            callback_data="request_location",
-                        )
-                    ],
-                    [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-                ]
-            ),
+            text=MsgConstants.RESET_GEO.value, reply_markup=get_reset_geolocation_keyboard()
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
-            chat_id=chat_id,
-            text=reset_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="🗺️ Указать геолокацию",
-                            callback_data="request_location",
-                        )
-                    ],
-                    [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-                ]
-            ),
+            chat_id=chat_id, text=MsgConstants.RESET_GEO.value, reply_markup=get_reset_geolocation_keyboard()
         )
 
     await callback.answer()
@@ -178,26 +154,17 @@ async def reset_all_filters(callback: types.CallbackQuery):
     await db_service.save_user_filters(user_id, [])
 
     # Обновляем сообщение
-    filters_text = """
-    ⚙️ <b>Фильтры поиска</b>
-
-    Выберите фильтры, которые хотите применить. 
-    Можно выбрать несколько вариантов.
-
-    <b>Текущие фильтры:</b>
-    ❌ Фильтры не выбраны
-
-    После выбора нажмите 'Подтвердить'
-    """
 
     try:
-        await callback.message.edit_text(text=filters_text, reply_markup=await get_filters_keyboard(user_id, 0))
+        await callback.message.edit_text(
+            text=MsgConstants.NO_FILTERS.value, reply_markup=await get_filters_keyboard(user_id, 0)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
             chat_id=chat_id,
-            text=filters_text,
+            text=MsgConstants.NO_FILTERS.value,
             reply_markup=await get_filters_keyboard(user_id, 0),
         )
 
@@ -212,37 +179,21 @@ async def reset_all_categories(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
     # Сбрасываем все категории
-    if user_id in redis_service.get_keys("data:*"):
+    if f"data:{user_id}" in redis_service.get_keys("data:*"):
         redis_service.set_user_data_params(user_id, {"selected_categories": []})
 
     # Обновляем сообщение
-    categories_text = """
-    🎯 <b>Выбор категорий отдыха</b>
-
-    Выберите типы отдыха, которые вам интересны. 
-    Можно выбрать несколько вариантов.
-
-    <b>Доступные категории:</b>
-    • 👨‍👩‍👧‍👦 Семейный - отдых с детьми и семьей
-    • 👥 С друзьями - веселое времяпрепровождение в компании  
-    • 💕 Романтический - для пар и свиданий
-    • 🏃‍♂️ Активный - спорт и движение
-    • 🧘‍♂️ Спокойный - расслабление и отдых
-    • 🌿 Уединённый - тихие места для уединения
-    • 🎭 Культурный - музеи, театры, выставки
-    • 🌳 На воздухе - парки, природа, улица
-
-    После выбора нажмите "Подтвердить"
-    """
 
     try:
-        await callback.message.edit_text(text=categories_text, reply_markup=get_categories_keyboard(user_id))
+        await callback.message.edit_text(
+            text=MsgConstants.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
             chat_id=chat_id,
-            text=categories_text,
+            text=MsgConstants.CATEGORIES.value,
             reply_markup=get_categories_keyboard(user_id),
         )
 
@@ -257,36 +208,19 @@ async def reset_all_wishes(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
     # Сбрасываем все пожелания
-    if user_id in redis_service.get_keys("data:*"):
+    if f"data:{user_id}" in redis_service.get_keys("data:*"):
         redis_service.set_user_data_params(user_id, {"selected_wishes": []})
 
     # Обновляем сообщение
-    wishes_text = """
-🌟 <b>Выбор пожеланий</b>
-
-    Выберите, что для вам важно в месте отдыха. 
-    Можно выбрать несколько вариантов.
-
-    <b>Доступные пожелания:</b>
-    • 🎉 Тусовки - вечеринки и активное общение
-    • 🍔 Вкусная еда - гастрономические удовольствия
-    • 🌅 Красивый вид - живописные места и панорамы
-    • ⚽ Активность - игры и физическая активность
-    • 🎮 Развлечения - аттракционы и игры
-    • 😌 Расслабление - релакс и спокойствие
-    • 🎵 Музыка - концерты и музыкальные мероприятия
-    • ✨ Атмосферность - особенная атмосфера места
-    • 🎨 Творчество - мастер-классы и искусство
-
-    После выбора нажмите "Подтвердить"
-    """
 
     try:
-        await callback.message.edit_text(text=wishes_text, reply_markup=get_wishes_keyboard(user_id))
+        await callback.message.edit_text(text=MsgConstants.WISHES.value, reply_markup=get_wishes_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
-        await update_or_send_message(chat_id=chat_id, text=wishes_text, reply_markup=get_wishes_keyboard(user_id))
+        await update_or_send_message(
+            chat_id=chat_id, text=MsgConstants.WISHES.value, reply_markup=get_wishes_keyboard(user_id)
+        )
 
     await callback.answer("Все пожелания сброшены")
 
@@ -319,7 +253,6 @@ async def show_place(user_id: int, chat_id: int, index: int):
 
     if user and user["latitude"] and user["longitude"] and place.get("latitude") and place.get("longitude"):
         try:
-
             user_lat = user["latitude"]
             user_lon = user["longitude"]
             place_lat = float(place["latitude"])
@@ -384,7 +317,8 @@ async def delete_user_message(message: types.Message):
 async def update_or_send_message(chat_id: int, text: str, reply_markup=None, photo_url: str = None):
     """Обновить существующее сообщение или отправить новое"""
     logger.info("update_or_send")
-    if chat_id in user_messages:
+    last_msg = redis_service.get_user_msg(chat_id)
+    if last_msg:
         try:
             if photo_url:
                 # Если есть фото, отправляем новое сообщение с фото
@@ -396,7 +330,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                 )
                 # Удаляем старое сообщение
                 try:
-                    await bot.delete_message(chat_id=chat_id, message_id=user_messages[chat_id])
+                    await bot.delete_message(chat_id=chat_id, message_id=last_msg)
                 except Exception as e:
                     logger.error(f"Error while deleting user msg, {e}")
             else:
@@ -404,7 +338,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                 try:
                     message = await bot.edit_message_text(
                         chat_id=chat_id,
-                        message_id=user_messages[chat_id],
+                        message_id=last_msg,
                         text=text,
                         reply_markup=reply_markup,
                     )
@@ -414,11 +348,11 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                     message = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
                     # Пытаемся удалить старое сообщение
                     try:
-                        await bot.delete_message(chat_id=chat_id, message_id=user_messages[chat_id])
+                        await bot.delete_message(chat_id=chat_id, message_id=last_msg)
                     except Exception as e:
                         logger.error(f"Error while deleting user msg, {e}")
 
-            user_messages[chat_id] = message.message_id
+            redis_service.set_user_msg(chat_id, message.message_id)
             return message.message_id
         except Exception as e:
             logger.error(f"Error in update_or_send_message: {e}")
@@ -433,7 +367,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                     )
                 else:
                     message = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
-                user_messages[chat_id] = message.message_id
+                redis_service.set_user_msg(chat_id, message.message_id)
                 return message.message_id
             except Exception as e2:
                 logger.error(f"Error sending new message: {e2}")
@@ -449,7 +383,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                 )
             else:
                 message = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
-            user_messages[chat_id] = message.message_id
+            redis_service.set_user_msg(chat_id, message.message_id)
             return message.message_id
         except Exception as e:
             logger.error(f"Error sending message: {e}")
@@ -487,24 +421,10 @@ async def cmd_start(message: types.Message):
         )
 
     photo = FSInputFile(START_IMG_PATH)
-    welcome_text = """
-🎉 <b>Добро пожаловать в Myspot!</b>
-
-    Я помогу вам найти идеальные места для отдыха по вашим предпочтениям.
-
-    <b>Основные функции:</b>
-    • 📍 Просмотр мест - смотрите предложения
-    • 📂 Категории - выберите тип отдыха
-    • ⚙️ Фильтры - настройте поиск
-    • 🗺️ Геолокация - ищите места рядом
-    • ❓ Помощь - получите справку
-
-    Выберите действие из меню ниже 👇
-        """
 
     # Сначала отправляем приветственное сообщение
     await update_or_send_message(
-        chat_id=message.chat.id, text=welcome_text, reply_markup=get_main_keyboard(), photo_url=photo
+        chat_id=message.chat.id, text=MsgConstants.WELCOME.value, reply_markup=get_main_keyboard(), photo_url=photo
     )
 
     # Потом удаляем сообщение пользователя с командой start
@@ -523,61 +443,13 @@ async def show_places_main(callback: types.CallbackQuery):
 
     if not places:
         # Все места просмотрены
-        all_viewed_text = """
-🎉 <b>Все подходящие места просмотрены!</b>
-
-    Вы посмотрели все места, которые соответствуют вашим предпочтениям.
-
-    Что вы хотите сделать?
-    • 🔄 Сбросить историю просмотров и начать заново
-    • ⚙️ Изменить фильтры или категории
-    • 🗺️ Обновить геолокацию
-    """
-
         try:
-            await callback.message.edit_text(
-                text=all_viewed_text,
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            InlineKeyboardButton(
-                                text="🔄 Сбросить историю просмотров",
-                                callback_data="reset_viewed",
-                            )
-                        ],
-                        [InlineKeyboardButton(text="⚙️ Изменить настройки", callback_data="main_menu")],
-                        [
-                            InlineKeyboardButton(
-                                text="🗺️ Обновить геолокацию",
-                                callback_data="show_geolocation_main",
-                            )
-                        ],
-                    ]
-                ),
-            )
+            await callback.message.edit_text(text=MsgConstants.ALL_VIEWED.value, reply_markup=get_update_keyboard())
         except Exception as e:
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
             await update_or_send_message(
-                chat_id=chat_id,
-                text=all_viewed_text,
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            InlineKeyboardButton(
-                                text="🔄 Сбросить историю просмотров",
-                                callback_data="reset_viewed",
-                            )
-                        ],
-                        [InlineKeyboardButton(text="⚙️ Изменить настройки", callback_data="main_menu")],
-                        [
-                            InlineKeyboardButton(
-                                text="🗺️ Обновить геолокацию",
-                                callback_data="show_geolocation_main",
-                            )
-                        ],
-                    ]
-                ),
+                chat_id=chat_id, text=MsgConstants.ALL_VIEWED.value, reply_markup=get_update_keyboard()
             )
 
         await callback.answer()
@@ -585,12 +457,6 @@ async def show_places_main(callback: types.CallbackQuery):
     # Проверяем, есть ли геолокация
     if user is not None and user["latitude"] is not None and user["longitude"] is not None:
         # Предлагаем выбор типа просмотра
-        choice_text = """
-    📍 <b>Выберите способ просмотра мест:</b>
-
-    • 🗺️ Ближайшие - места рядом с вами, отсортированные по расстоянию
-    • ⭐ Рекомендации - лучшие места по вашим предпочтениям с указанием расстояния
-    """
 
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -601,11 +467,11 @@ async def show_places_main(callback: types.CallbackQuery):
         )
 
         try:
-            await callback.message.edit_text(text=choice_text, reply_markup=keyboard)
+            await callback.message.edit_text(text=MsgConstants.VIEW_CHOICE.value, reply_markup=keyboard)
         except Exception as e:
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
-            await update_or_send_message(chat_id=chat_id, text=choice_text, reply_markup=keyboard)
+            await update_or_send_message(chat_id=chat_id, text=MsgConstants.VIEW_CHOICE.value, reply_markup=keyboard)
     else:
         # Если нет геолокации, показываем обычные рекомендации
         redis_service.set_user_data_params(user_id, {"current_place_index": 0})
@@ -635,32 +501,14 @@ async def view_nearby_places(callback: types.CallbackQuery):
 
     if not places:
         # Обработка случая, когда нет мест
-        no_places_text = """
-    ❌ <b>Ближайшие места не найдены</b>
 
-    Не найдено мест рядом с вами.
-    Попробуйте изменить ваши категории, пожелания или фильтры.
-    """
-
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="📂 Изменить категории",
-                        callback_data="show_categories_main",
-                    )
-                ],
-                [InlineKeyboardButton(text="⚙️ Изменить фильтры", callback_data="show_filters_main")],
-                [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-            ]
-        )
-
+        keyboard = get_change_keyboard()
         try:
-            await callback.message.edit_text(text=no_places_text, reply_markup=keyboard)
+            await callback.message.edit_text(text=MsgConstants.NO_PLACES_NEAR.value, reply_markup=keyboard)
         except Exception as e:
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
-            await update_or_send_message(chat_id=chat_id, text=no_places_text, reply_markup=keyboard)
+            await update_or_send_message(chat_id=chat_id, text=MsgConstants.NO_PLACES_NEAR.value, reply_markup=keyboard)
 
         await callback.answer()
         return
@@ -686,32 +534,14 @@ async def view_recommended_places(callback: types.CallbackQuery):
 
     if not places:
         # Обработка случая, когда нет мест
-        no_places_text = """
-    ❌ <b>Места не найдены</b>
-
-    Не найдено мест, соответствующих вашим предпочтениям.
-    Попробуйте изменить ваши категории, пожелания или фильтры.
-    """
-
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="📂 Изменить категории",
-                        callback_data="show_categories_main",
-                    )
-                ],
-                [InlineKeyboardButton(text="⚙️ Изменить фильтры", callback_data="show_filters_main")],
-                [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-            ]
-        )
+        keyboard = get_change_keyboard()
 
         try:
-            await callback.message.edit_text(text=no_places_text, reply_markup=keyboard)
+            await callback.message.edit_text(text=MsgConstants.NO_PLACES.value, reply_markup=keyboard)
         except Exception as e:
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
-            await update_or_send_message(chat_id=chat_id, text=no_places_text, reply_markup=keyboard)
+            await update_or_send_message(chat_id=chat_id, text=MsgConstants.NO_PLACES.value, reply_markup=keyboard)
 
         await callback.answer()
         return
@@ -727,28 +557,9 @@ async def view_recommended_places(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "show_categories_main")
 async def show_categories_main(callback: types.CallbackQuery):
-    categories_text = """
-    🎯 <b>Выбор категорий отдыха</b>
-
-    Выберите типы отдыха, которые вам интересны. 
-    Можно выбрать несколько вариантов.
-
-    <b>Доступные категории:</b>
-    • 👨‍👩‍👧‍👦 Семейный - отдых с детьми и семьей
-    • 👥 С друзьями - веселое времяпрепровождение в компании  
-    • 💕 Романтический - для пар и свиданий
-    • 🏃‍♂️ Активный - спорт и движение
-    • 🧘‍♂️ Спокойный - расслабление и отдых
-    • 🌿 Уединённый - тихие места для уединения
-    • 🎭 Культурный - музеи, театры, выставки
-    • 🌳 На воздухе - парки, природа, улица
-
-    После выбора нажмите "Подтвердить"
-        """
-
     try:
         await callback.message.edit_text(
-            text=categories_text,
+            text=MsgConstants.CATEGORIES.value,
             reply_markup=get_categories_keyboard(callback.from_user.id),
         )
     except Exception as e:
@@ -756,7 +567,7 @@ async def show_categories_main(callback: types.CallbackQuery):
         chat_id = callback.message.chat.id
         await update_or_send_message(
             chat_id=chat_id,
-            text=categories_text,
+            text=MsgConstants.CATEGORIES.value,
             reply_markup=get_categories_keyboard(callback.from_user.id),
         )
 
@@ -771,14 +582,7 @@ async def show_filters_main(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
 
-    filters_text = """
-    ⚙️ <b>Фильтры поиска</b>
-
-    Выберите фильтры, которые хотите применить. 
-    Можно выбрать несколько вариантов.
-
-    <b>Текущие фильтры:</b>
-    """
+    filters_text = MsgConstants.FILTERS.value
 
     if user_filters:
         for filter_name in user_filters:
@@ -812,14 +616,7 @@ async def handle_filters_page(callback: types.CallbackQuery):
 
     user_filters = await db_service.get_user_filters(user_id)
 
-    filters_text = """
-    ⚙️ <b>Фильтры поиска</b>
-
-    Выберите фильтры, которые хотите применить. 
-    Можно выбрать несколько вариантов.
-
-    <b>Текущие фильтры:</b>
-    """
+    filters_text = MsgConstants.FILTERS.value
 
     if user_filters:
         for filter_name in user_filters:
@@ -872,14 +669,7 @@ async def handle_filter_selection(callback: types.CallbackQuery):
     # Обновляем сообщение
     user_filters = await db_service.get_user_filters(user_id)
 
-    filters_text = """
-    ⚙️ <b>Фильтры поиска</b>
-
-    Выберите фильтры, которые хотите применить. 
-    Можно выбрать несколько вариантов.
-
-    <b>Текущие фильтры:</b>
-    """
+    filters_text = MsgConstants.FILTERS.value
 
     if user_filters:
         for filter_name in user_filters:
@@ -910,28 +700,15 @@ async def handle_filter_selection(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "search_filter")
 async def search_filter(callback: types.CallbackQuery, state: FSMContext):
-    search_text = """
-    🔍 <b>Поиск фильтра</b>
-
-    Введите название фильтра, который хотите найти:
-    """
-
     try:
         await callback.message.edit_text(
-            text=search_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="↩️ Назад к фильтрам", callback_data="show_filters_main")]]
-            ),
+            text=MsgConstants.SEARCH_FILTER.value, reply_markup=get_back_to_filters_keyboard()
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
-            chat_id=chat_id,
-            text=search_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="↩️ Назад к фильтрам", callback_data="show_filters_main")]]
-            ),
+            chat_id=chat_id, text=MsgConstants.SEARCH_FILTER.value, reply_markup=get_back_to_filters_keyboard()
         )
 
     # Устанавливаем состояние ожидания названия фильтра
@@ -999,13 +776,7 @@ async def confirm_filters(callback: types.CallbackQuery):
     user_filters = await db_service.get_user_filters(user_id)
 
     # Показываем сообщение о процессе подбора
-    processing_text = """
-    ⏳ <b>Идёт подбор мест по вашим параметрам...</b>
-
-    Пожалуйста, подождите немного. Мы выбираем лучшие места, соответствующие вашим фильтрам.
-    """
-
-    processing_message_id = await update_or_send_message(callback.message.chat.id, processing_text)
+    processing_message_id = await update_or_send_message(callback.message.chat.id, MsgConstants.PROCESSING.value)
 
     await db_service.create_user_places_table(user_id)
 
@@ -1018,15 +789,7 @@ async def confirm_filters(callback: types.CallbackQuery):
     """
 
     try:
-        await callback.message.edit_text(
-            text=confirmation_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="📍 Смотреть места", callback_data="view_places_main")],
-                    [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-                ]
-            ),
-        )
+        await callback.message.edit_text(text=confirmation_text, reply_markup=get_view_places_keyboard())
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
@@ -1038,16 +801,7 @@ async def confirm_filters(callback: types.CallbackQuery):
             except Exception as e:
                 logger.error(f"Error while deleting msh {e}")
 
-        await update_or_send_message(
-            chat_id=chat_id,
-            text=confirmation_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="📍 Смотреть места", callback_data="view_places_main")],
-                    [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-                ]
-            ),
-        )
+        await update_or_send_message(chat_id=chat_id, text=confirmation_text, reply_markup=get_view_places_keyboard())
 
     await callback.answer()
 
@@ -1110,17 +864,9 @@ async def show_geolocation_main(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "request_location")
 async def request_location(callback: types.CallbackQuery):
-    location_text = """
-🗺️ <b>Отправьте ваше местоположение</b>
-
-    Пожалуйста, отправьте ваше местоположение, чтобы найти места рядом с вами.
-
-    Нажмите на кнопку "📎" (скрепка) внизу и выберите "Местоположение".
-    """
-
     try:
         await callback.message.edit_text(
-            text=location_text,
+            text=MsgConstants.SEND_LOCATION.value,
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text="↩️ Назад", callback_data="show_geolocation_main")]]
             ),
@@ -1130,7 +876,7 @@ async def request_location(callback: types.CallbackQuery):
         chat_id = callback.message.chat.id
         await update_or_send_message(
             chat_id=chat_id,
-            text=location_text,
+            text=MsgConstants.SEND_LOCATION.value,
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text="↩️ Назад", callback_data="show_geolocation_main")]]
             ),
@@ -1173,16 +919,10 @@ async def handle_location(message: types.Message):
     await db_service.create_user_places_table(user_id)
 
     # Отправляем подтверждение
-    location_text = """
-    📍 <b>Геолокация сохранена!</b>
-
-    Ваше местоположение сохранено.
-    Теперь вы можете искать места рядом с вами.
-    """
 
     await update_or_send_message(
         chat_id=message.chat.id,
-        text=location_text,
+        text=MsgConstants.GEO_SAVED.value,
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="📍 Смотреть места рядом", callback_data="view_places_main")],
@@ -1200,26 +940,14 @@ async def handle_location(message: types.Message):
 
 @dp.callback_query(F.data == "show_help_main")
 async def show_help_main(callback: types.CallbackQuery):
-    help_text = """
-    ❓ <b>Помощь по использованию бота</b>
-
-    <b>Как пользоваться:</b>
-    1. Выберите категории отдыха
-    2. Укажите ваши пожелания
-    3. Просматривайте подобранные места
-    4. Используйте фильтры для уточнения
-
-    <b>Команды:</b>
-    /start - перезапустить бота
-    /help - показать эту справку
-        """
-
     try:
-        await callback.message.edit_text(text=help_text, reply_markup=get_back_to_main_keyboard())
+        await callback.message.edit_text(text=MsgConstants.HELP_TEXT.value, reply_markup=get_back_to_main_keyboard())
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
-        await update_or_send_message(chat_id=chat_id, text=help_text, reply_markup=get_back_to_main_keyboard())
+        await update_or_send_message(
+            chat_id=chat_id, text=MsgConstants.HELP_TEXT.value, reply_markup=get_back_to_main_keyboard()
+        )
 
     await callback.answer()
 
@@ -1228,25 +956,12 @@ async def show_help_main(callback: types.CallbackQuery):
 
 
 # Обработчики инлайн кнопок
-@dp.callback_query(
-    F.data.in_(
-        [
-            "Семейный",
-            "С друзьями",
-            "Романтический",
-            "Активный",
-            "Спокойный",
-            "Уединённый",
-            "Культурный",
-            "На воздухе",
-        ]
-    )
-)
+@dp.callback_query(F.data.in_(MsgConstants.CATEGORIES_TYPES.value))
 async def handle_category_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     category = callback.data
 
-    if user_id not in redis_service.get_keys("data:*"):
+    if f"data:{user_id}" not in redis_service.get_keys("data:*"):
         redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
 
     user_data = redis_service.get_user_data(user_id)
@@ -1257,34 +972,18 @@ async def handle_category_selection(callback: types.CallbackQuery):
     redis_service.set_user_data(user_id, user_data)
 
     # Обновляем сообщение с новым состоянием кнопок
-    categories_text = """
-    🎯 <b>Выбор категорий отдыха</b>
-
-    Выберите типы отдыха, которые вам интересны. 
-    Можно выбрать несколько вариантов.
-
-    <b>Доступные категории:</b>
-    • 👨‍👩‍👧‍👦 Семейный - отдых с детьми и семьей
-    • 👥 С друзьями - веселое времяпрепровождение в компании  
-    • 💕 Романтический - для пар и свиданий
-    • 🏃‍♂️ Активный - спорт и движение
-    • 🧘‍♂️ Спокойный - расслабление и отдых
-    • 🌿 Уединённый - тихие места для уединения
-    • 🎭 Культурный - музеи, театры, выставки
-    • 🌳 На воздухе - парки, природа, улица
-
-    После выбора нажмите "Подтвердить"
-        """
 
     try:
-        await callback.message.edit_text(text=categories_text, reply_markup=get_categories_keyboard(user_id))
+        await callback.message.edit_text(
+            text=MsgConstants.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         # Если не удалось отредактировать, отправляем новое сообщение
         chat_id = callback.message.chat.id
         await update_or_send_message(
             chat_id=chat_id,
-            text=categories_text,
+            text=MsgConstants.CATEGORIES.value,
             reply_markup=get_categories_keyboard(user_id),
         )
 
@@ -1296,34 +995,16 @@ async def handle_category_selection(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "confirm_categories")
 async def confirm_categories(callback: types.CallbackQuery):
-    wishes_text = """
-    🌟 <b>Выбор пожеланий</b>
-
-    Выберите, что для вам важно в месте отдыха. 
-    Можно выбрать несколько вариантов.
-
-    <b>Доступные пожелания:</b>
-    • 🎉 Тусовки - вечеринки и активное общение
-    • 🍔 Вкусная еда - гастрономические удовольствия
-    • 🌅 Красивый вид - живописные места и панорамы
-    • ⚽ Активность - игры и физическая активность
-    • 🎮 Развлечения - аттракционы и игры
-    • 😌 Расслабление - релакс и спокойствие
-    • 🎵 Музыка - концерты и музыкальные мероприятия
-    • ✨ Атмосферность - особенная атмосфера места
-    • 🎨 Творчество - мастер-классы и искусство
-
-    После выбора нажмите "Подтвердить"
-        """
-
     try:
-        await callback.message.edit_text(text=wishes_text, reply_markup=get_wishes_keyboard(callback.from_user.id))
+        await callback.message.edit_text(
+            text=MsgConstants.WISHES.value, reply_markup=get_wishes_keyboard(callback.from_user.id)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
             chat_id=chat_id,
-            text=wishes_text,
+            text=MsgConstants.WISHES.value,
             reply_markup=get_wishes_keyboard(callback.from_user.id),
         )
 
@@ -1333,26 +1014,12 @@ async def confirm_categories(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "confirm_categories")
 
 
-@dp.callback_query(
-    F.data.in_(
-        [
-            "Тусовки",
-            "Вкусная еда",
-            "Красивый вид",
-            "Активность",
-            "Развлечения",
-            "Расслабление",
-            "Музыка",
-            "Атмосферность",
-            "Творчество",
-        ]
-    )
-)
+@dp.callback_query(F.data.in_(MsgConstants.WISHES_TYPES.value))
 async def handle_wish_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     wish = callback.data
 
-    if user_id not in redis_service.get_keys("data:*"):
+    if f"data:{user_id}" not in redis_service.get_keys("data:*"):
         redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
 
     user_data = redis_service.get_user_data(user_id)
@@ -1365,32 +1032,15 @@ async def handle_wish_selection(callback: types.CallbackQuery):
     redis_service.set_user_data(user_id, user_data)
 
     # Обновляем сообщение
-    wishes_text = """
-    🌟 <b>Выбор пожеланий</b>
-
-    Выберите, что для вам важно в месте отдыха. 
-    Можно выбрать несколько вариантов.
-
-    <b>Доступные пожелания:</b>
-    • 🎉 Тусовки - вечеринки и активное общение
-    • 🍔 Вкусная еда - гастрономические удовольствия
-    • 🌅 Красивый вид - живописные места и панорамы
-    • ⚽ Активность - игры и физическая активность
-    • 🎮 Развлечения - аттракционы и игры
-    • 😌 Расслабление - релакс и спокойствие
-    • 🎵 Музыка - концерты и музыкальные мероприятия
-    • ✨ Атмосферность - особенная атмосфера места
-    • 🎨 Творчество - мастер-классы и искусство
-
-    После выбора нажмите "Подтвердить"
-        """
 
     try:
-        await callback.message.edit_text(text=wishes_text, reply_markup=get_wishes_keyboard(user_id))
+        await callback.message.edit_text(text=MsgConstants.WISHES.value, reply_markup=get_wishes_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
-        await update_or_send_message(chat_id=chat_id, text=wishes_text, reply_markup=get_wishes_keyboard(user_id))
+        await update_or_send_message(
+            chat_id=chat_id, text=MsgConstants.WISHES.value, reply_markup=get_wishes_keyboard(user_id)
+        )
 
     await callback.answer()
 
@@ -1407,13 +1057,8 @@ async def confirm_wishes(callback: types.CallbackQuery):
     wishes_count = len(user_data["selected_wishes"])
 
     # Показываем сообщение о процессе подбора
-    processing_text = """
-    ⏳ <b>Идёт подбор мест по вашим параметрам...</b>
 
-    Пожалуйста, подождите немного. Мы анализируем ваши категории и пожелания для подбора идеальных мест.
-    """
-
-    processing_message_id = await update_or_send_message(callback.message.chat.id, processing_text)
+    processing_message_id = await update_or_send_message(callback.message.chat.id, MsgConstants.PROCESSING.value)
 
     # Получаем текущие данные пользователя из базы (включая геопозицию)
     user = await db_service.get_user(user_id)
@@ -1441,15 +1086,7 @@ async def confirm_wishes(callback: types.CallbackQuery):
         """
 
     try:
-        await callback.message.edit_text(
-            text=confirmation_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="📍 Смотреть места", callback_data="view_places_main")],
-                    [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-                ]
-            ),
-        )
+        await callback.message.edit_text(text=confirmation_text, reply_markup=get_view_places_keyboard())
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
@@ -1461,16 +1098,7 @@ async def confirm_wishes(callback: types.CallbackQuery):
             except Exception as e:
                 logger.error(f"Error while deleting msg {e}")
 
-        await update_or_send_message(
-            chat_id=chat_id,
-            text=confirmation_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="📍 Смотреть места", callback_data="view_places_main")],
-                    [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
-                ]
-            ),
-        )
+        await update_or_send_message(chat_id=chat_id, text=confirmation_text, reply_markup=get_view_places_keyboard())
 
     await callback.answer()
 
@@ -1480,26 +1108,13 @@ async def confirm_wishes(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "main_menu")
 async def back_to_main_menu(callback: types.CallbackQuery):
-    main_text = """
-    🎉 <b>Добро пожаловать в MySpot!</b>
-
-    Я помогу вам найти идеальные места для отдыха по вашим предпочтениям.
-
-    <b>Основные функции:</b>
-    • 📍 Просмотр мест - смотрите предложения
-    • 📂 Категории - выберите тип отдыха
-    • ⚙️ Фильтры - настройте поиск
-    • 🗺️ Геолокация - ищите места рядом
-    • ❓ Помощь - получите справку
-
-    Выберите действие из меню ниже 👇
-        """
-
     photo = FSInputFile(START_IMG_PATH)
 
     chat_id = callback.message.chat.id
 
-    await update_or_send_message(chat_id=chat_id, text=main_text, reply_markup=get_main_keyboard(), photo_url=photo)
+    await update_or_send_message(
+        chat_id=chat_id, text=MsgConstants.WELCOME.value, reply_markup=get_main_keyboard(), photo_url=photo
+    )
     await callback.answer()
 
     # Обновляем время последней активности
@@ -1529,39 +1144,14 @@ async def navigate_places(callback: types.CallbackQuery):
             current_index += 1
         else:
             # Все места просмотрены - показываем сообщение/меню
-            all_viewed_text = """
-    🎉 <b>Все подходящие места просмотрены!</b>
 
-    Вы посмотрели все места, которые соответствуют вашим предпочтениям.
-
-    Что вы хотите сделать?
-    • 🔄 Сбросить историю просмотров и начать заново
-    • ⚙️ Изменить фильтры или категории
-    • 🗺️ Обновить геолокацию
-    """
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="🔄 Сбросить историю просмотров",
-                            callback_data="reset_viewed",
-                        )
-                    ],
-                    [InlineKeyboardButton(text="⚙️ Изменить настройки", callback_data="main_menu")],
-                    [
-                        InlineKeyboardButton(
-                            text="🗺️ Обновить геолокацию",
-                            callback_data="show_geolocation_main",
-                        )
-                    ],
-                ]
-            )
+            keyboard = get_update_keyboard()
             try:
-                await callback.message.edit_text(text=all_viewed_text, reply_markup=keyboard)
+                await callback.message.edit_text(text=MsgConstants.ALL_VIEWED.value, reply_markup=keyboard)
             except Exception as e:
                 logger.error(f"Error editing message: {e}")
                 chat_id = callback.message.chat.id
-                await update_or_send_message(chat_id=chat_id, text=all_viewed_text, reply_markup=keyboard)
+                await update_or_send_message(chat_id=chat_id, text=MsgConstants.ALL_VIEWED.value, reply_markup=keyboard)
             await callback.answer()
             return
 
@@ -1583,14 +1173,7 @@ async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext)
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
 
-    filters_text = """
-    ⚙️ <b>Фильтры поиска</b>
-
-    Выберите фильтры, которые хотите применить. 
-    Можно выбрать несколько вариантов.
-
-    <b>Текущие фильтры:</b>
-    """
+    filters_text = MsgConstants.FILTERS.value
 
     if user_filters:
         for filter_name in user_filters:

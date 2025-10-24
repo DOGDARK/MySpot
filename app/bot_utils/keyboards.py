@@ -1,128 +1,8 @@
-from typing import Any
-
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.bot_utils.msg_constants import MsgConstants
+from app.bot_utils.utils import AVAILABLE_FILTERS
 from app.core.instances import db_service, redis_service
-
-AVAILABLE_FILTERS = [
-    "Кафе",
-    "Ресторан",
-    "Кофейня",
-    "Бар",
-    "Пиццерия",
-    "Суши-бар",
-    "Столовая",
-    "Паб",
-    "Чай с собой",
-    "Парк культуры и отдыха",
-    "Кинотеатр",
-    "Театр",
-    "Концертный зал",
-    "Музей",
-    "Художественная галерея",
-    "Выставка",
-    "Выставочный центр",
-    "Культурный центр",
-    "Библиотека",
-    "Планетарий",
-    "Океанариум",
-    "Аквапарк",
-    "Бассейн",
-    "Каток",
-    "Спортивный комплекс",
-    "Спортивный клуб",
-    "Фитнес-центр",
-    "Спортивная школа",
-    "Скалодром",
-    "Боулинг-клуб",
-    "Квесты",
-    "Клуб виртуальной реальности",
-    "Лазертаг",
-    "Пейнтбол",
-    "Картинг",
-    "Батутный центр",
-    "Верёвочный парк",
-    "Аттракцион",
-    "Парк аттракционов",
-    "Детская площадка",
-    "Игровая комната",
-    "Клуб для детей и подростков",
-    "Центр развития ребёнка",
-    "Детский лагерь отдыха",
-    "Организация и проведение детских праздников",
-    "Ночной клуб",
-    "Караоке-клуб",
-    "Караоке-кабинка",
-    "Кальян-бар",
-    "Стриптиз-клуб",
-    "Банкетный зал",
-    "Кейтеринг",
-    "Аренда площадок для культурно-массовых мероприятий",
-    "Антикафе",
-    "Водные прогулки",
-    "Пляж",
-    "Сауна",
-    "Часовня",
-    "Смотровая площадка",
-    "Сквер",
-    "Сад",
-    "Лесопарк",
-    "Заповедник",
-    "Место для пикника",
-    "Алкогольные напитки",
-    "Рюмочная",
-    "Пивоварня",
-    "Пивоваренный завод",
-    "Сыроварня",
-    "Торговый центр",
-    "Игорное и развлекательное оборудование",
-    "Бильярдный клуб",
-    "Игровые приставки",
-    "Компьютерный клуб",
-    "Киберспорт",
-    "Настольные и интеллектуальные игры",
-    "Театрально-концертная касса",
-    "Концертные и театральные агентства",
-    "Горная вершина",
-    "Обсерватория",
-    "Аэроклуб",
-    "Аэротруба",
-    "Центр экстремальных видов спорта",
-    "Зимние развлечения",
-    "Ретритный центр",
-    "Декоративный объект",
-    "Чайная",
-    "Безалкогольный бар",
-    "Скейт-парк",
-    "Танцплощадка",
-    "Оркестр",
-    "Тир",
-    "Лодочная станция",
-    "Водная база",
-]
-
-
-
-def generate_place_text(
-    place: dict[Any, Any],
-    website: str,
-    rating_text: str,
-    distance_text: str | None = None,
-) -> str:
-    place_name = (
-        f"<a href='{website}'>{place.get('name', 'Не указано')}</a>" if website else place.get("name", "Не указано")
-    )
-    rating = rating_text + distance_text if distance_text else rating_text
-    return f"""
-    <b>Название места:</b> {place_name}
-    <b>Фильтры:</b> {place.get("categories", "Не указаны")}
-    <b>Рейтинг:</b> {rating}
-    <b>Описание:</b> {place.get("description", "Описание отсутствует")}
-    <b>Адрес:</b> {place.get("address", "Адрес не указан")}
-    """
-
-
-# Клавиатуры
 
 
 async def get_filters_keyboard(user_id: int, page: int = 0) -> InlineKeyboardMarkup:
@@ -193,20 +73,25 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def get_reset_geolocation_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🗺️ Указать геолокацию",
+                    callback_data="request_location",
+                )
+            ],
+            [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
+        ]
+    )
+
+
 def get_categories_keyboard(user_id: int) -> InlineKeyboardMarkup:
     selected_categories = redis_service.get_user_data(user_id).get("selected_categories", [])
     buttons = []
 
-    categories = [
-        ("Семейный", "Семейный"),
-        ("С друзьями", "С друзьями"),
-        ("Романтический", "Романтический"),
-        ("Активный", "Активный"),
-        ("Спокойный", "Спокойный"),
-        ("Уединённый", "Уединённый"),
-        ("Культурный", "Культурный"),
-        ("На воздухе", "На воздухе"),
-    ]
+    categories = [(category_type, category_type) for category_type in MsgConstants.CATEGORIES_TYPES.value]
 
     for i in range(0, len(categories), 2):
         row = []
@@ -225,17 +110,7 @@ def get_wishes_keyboard(user_id: int) -> InlineKeyboardMarkup:
     selected_wishes = redis_service.get_user_data(user_id).get("selected_wishes", [])
     buttons = []
 
-    wishes = [
-        ("Тусовки", "Тусовки"),
-        ("Вкусная еда", "Вкусная еда"),
-        ("Красивый вид", "Красивый вид"),
-        ("Активность", "Активность"),
-        ("Развлечения", "Развлечения"),
-        ("Расслабление", "Расслабление"),
-        ("Музыка", "Музыка"),
-        ("Атмосферность", "Атмосферность"),
-        ("Творчество", "Творчество"),
-    ]
+    wishes = [(wish_type, wish_type) for wish_type in MsgConstants.WISHES_TYPES.value]
 
     for i in range(0, len(wishes), 2):
         row = []
@@ -268,4 +143,54 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
 def get_back_to_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")]]
+    )
+
+
+def get_update_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔄 Сбросить историю просмотров",
+                    callback_data="reset_viewed",
+                )
+            ],
+            [InlineKeyboardButton(text="⚙️ Изменить настройки", callback_data="main_menu")],
+            [
+                InlineKeyboardButton(
+                    text="🗺️ Обновить геолокацию",
+                    callback_data="show_geolocation_main",
+                )
+            ],
+        ]
+    )
+
+
+def get_change_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📂 Изменить категории",
+                    callback_data="show_categories_main",
+                )
+            ],
+            [InlineKeyboardButton(text="⚙️ Изменить фильтры", callback_data="show_filters_main")],
+            [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
+        ]
+    )
+
+
+def get_back_to_filters_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="↩️ Назад к фильтрам", callback_data="show_filters_main")]]
+    )
+
+
+def get_view_places_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📍 Смотреть места", callback_data="view_places_main")],
+            [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
+        ]
     )

@@ -38,7 +38,5 @@ class RedisService:
             data[k] = v
         self.set_user_data(user_id, data)
 
-    
-
     def get_keys(self, pattern="*") -> list[Any]:
         return self._repo.get_keys(pattern)
