@@ -2,6 +2,10 @@ import asyncio
 import logging
 from math import atan2, cos, radians, sin, sqrt
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pytz
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.client.default import DefaultBotProperties
@@ -442,17 +446,17 @@ async def daily_report(message: types.Message = None, by_timer = False):
     Сегодня {stats[0]} новых пользователей
     Всего {stats[1]} пользователей
         """
-        bot.send_message(chat_id=MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
+        bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
         db_service.change_user_count(reset=True)
     else: 
-        if chat_id == MODERATORS_CHAT_ID:
+        if chat_id == Settings.MODERATORS_CHAT_ID:
             stats = await db_service.user_counts()
             stat_message = f"""
         <b>Статистика пользователей</b>
         Сегодня {stats[0]} новых пользователей
         Всего {stats[1]} пользователей
             """
-            await bot.send_message(chat_id=MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
+            await bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
 
 
 
