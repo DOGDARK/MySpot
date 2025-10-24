@@ -53,7 +53,7 @@ class DbService:
         else:
             self.user_count += 1
 
-    async def user_count(self):
+    async def user_counts(self):
         total = await self._repo.user_count()
         return [self.user_count, total]
 
@@ -122,7 +122,7 @@ class DbService:
         else:
             # Создаем нового пользователя
             await self._repo.create_user(user_id, categories_str, wishes_str, filters_str, latitude, longitude)
-            self.change_user_count()
+            await self.change_user_count()
 
 
     async def update_user_activity(self, user_id: int, last_button: str = None):
@@ -195,7 +195,7 @@ class DbService:
                     None,
                     None,
                 )
-                self.change_user_count()
+                await self.change_user_count()
 
         except Exception as e:
             logger.error(f"Error updating user activity: {e}")
