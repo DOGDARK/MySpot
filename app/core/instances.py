@@ -11,8 +11,9 @@ from app.repositories.redis_repo import RedisRepo
 from app.services.db_service import DbService
 from app.services.redis_service import RedisService
 
-bot = Bot(token=Settings.BOT_TOKEN, parse_mode=ParseMode.HTML, bot=DefaultBotProperties())
+bot = Bot(token=Settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
+
 scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
 
 db_repo = DbRepo()

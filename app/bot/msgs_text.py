@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class MsgConstants(Enum):
+class MsgsText(Enum):
     WELCOME = """
     🎉 <b>Добро пожаловать в Myspot!</b>
 

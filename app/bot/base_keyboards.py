@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.bot.msg_constants import AVAILABLE_FILTERS, MsgConstants
+from app.bot.msgs_text import AVAILABLE_FILTERS, MsgsText
 from app.core.instances import db_service, redis_service
 
 
@@ -90,7 +90,7 @@ def get_categories_keyboard(user_id: int) -> InlineKeyboardMarkup:
     selected_categories = redis_service.get_user_data(user_id).get("selected_categories", [])
     buttons = []
 
-    categories = [(category_type, category_type) for category_type in MsgConstants.CATEGORIES_TYPES.value]
+    categories = [(category_type, category_type) for category_type in MsgsText.CATEGORIES_TYPES.value]
 
     for i in range(0, len(categories), 2):
         row = []
@@ -109,7 +109,7 @@ def get_wishes_keyboard(user_id: int) -> InlineKeyboardMarkup:
     selected_wishes = redis_service.get_user_data(user_id).get("selected_wishes", [])
     buttons = []
 
-    wishes = [(wish_type, wish_type) for wish_type in MsgConstants.WISHES_TYPES.value]
+    wishes = [(wish_type, wish_type) for wish_type in MsgsText.WISHES_TYPES.value]
 
     for i in range(0, len(wishes), 2):
         row = []
