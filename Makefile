@@ -17,6 +17,9 @@ down:
 build:
 	docker build -t my_spot:latest .
 
+build_pg:
+	docker build -f Dockerfile.pg -t pg:latest .
+
 up_local:
 	docker compose up -d
 
