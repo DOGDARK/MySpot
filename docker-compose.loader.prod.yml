@@ -2,7 +2,7 @@ services:
   pgloader:
     image: dimitri/pgloader
     volumes:
-      - ${PWD}/data:/data
+      - ${PWD}/tmp/data:/data
     networks:
       - myspot_service_network
     command: >
