@@ -2,10 +2,6 @@ import asyncio
 import logging
 from math import atan2, cos, radians, sin, sqrt
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import pytz
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.client.default import DefaultBotProperties
@@ -400,7 +396,7 @@ async def cmd_start(message: types.Message):
     logger.info("cmd_start")
     user_id = message.from_user.id
     chat_id = message.chat.id
-    print(chat_id)
+    logger.info(f"User with {chat_id=} press start")
     # Загружаем данные пользователя из базы данных
     user_db_data = await db_service.get_user(user_id)
     if user_db_data:
@@ -436,19 +432,19 @@ async def cmd_start(message: types.Message):
     await delete_user_message(message)
 
 
-@dp.message(Command("stats"))
-async def daily_report(message: types.Message = None, by_timer = False):
+@dp.message(Command("stats"))  # need fix
+async def daily_report(message: types.Message = None, by_timer=False):
     chat_id = message.chat.id
     if by_timer:
         stats = db_service.user_count
         stat_message = f"""
-<b>Статистика пользователей<b>
+    <b>Статистика пользователей<b>
     Сегодня {stats[0]} новых пользователей
     Всего {stats[1]} пользователей
         """
-        bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
+        bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
         db_service.change_user_count(reset=True)
-    else: 
+    else:
         if chat_id == Settings.MODERATORS_CHAT_ID:
             stats = await db_service.user_counts()
             stat_message = f"""
@@ -456,8 +452,7 @@ async def daily_report(message: types.Message = None, by_timer = False):
         Сегодня {stats[0]} новых пользователей
         Всего {stats[1]} пользователей
             """
-            await bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode='HTML')
-
+            await bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
 
 
 # Обработчики главного меню
@@ -919,8 +914,6 @@ async def handle_location(message: types.Message):
     user_id = message.from_user.id
     latitude = message.location.latitude
     longitude = message.location.longitude
-
-    print(latitude, longitude)
 
     # Сохраняем геолокацию пользователя
     user = await db_service.get_user(user_id)

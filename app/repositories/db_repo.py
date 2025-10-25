@@ -131,7 +131,6 @@ class DbRepo:
         longitude: float = None,
     ) -> None:
         async with self._pool.acquire() as conn:
-
             await conn.execute(
                 """
                 INSERT INTO users (

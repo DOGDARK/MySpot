@@ -22,3 +22,7 @@ up_local:
 
 down_local:
 	docker compose down
+
+pull_prod:
+	git fetch --all 
+	git reset --hard origin/main

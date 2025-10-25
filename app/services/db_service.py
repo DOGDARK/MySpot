@@ -42,8 +42,8 @@ class DbService:
             if row
             else None
         )
-    
-    async def change_user_count(self, reset = False):
+
+    async def change_user_count(self, reset=False):
         if reset:
             self.user_count = 0
         else:
@@ -92,7 +92,6 @@ class DbService:
             logger.error(f"Database error in get_user: {e}")
             return None
 
-
     async def save_user(
         self,
         user_id: int,
@@ -119,7 +118,6 @@ class DbService:
             # Создаем нового пользователя
             await self._repo.create_user(user_id, categories_str, wishes_str, filters_str, latitude, longitude)
             await self.change_user_count()
-
 
     async def update_user_activity(self, user_id: int, last_button: str = None):
         """
