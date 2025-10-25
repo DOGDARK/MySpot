@@ -1,15 +1,13 @@
-import asyncio
 import logging
 from math import atan2, cos, radians, sin, sqrt
 
-from aiogram import F, types
+from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
-from apscheduler.triggers.cron import CronTrigger
 
-from app.bot_utils.keyboards import (
+from app.bot.keyboards import (
     get_back_to_filters_keyboard,
     get_back_to_main_keyboard,
     get_categories_keyboard,
@@ -22,12 +20,14 @@ from app.bot_utils.keyboards import (
     get_view_places_keyboard,
     get_wishes_keyboard,
 )
-from app.bot_utils.msg_constants import AVAILABLE_FILTERS, MsgConstants
-from app.bot_utils.utils import generate_place_text
-from app.core.instances import bot, db_service, dp, redis_service, scheduler
+from app.bot.msg_constants import AVAILABLE_FILTERS, MsgConstants
+from app.bot.utils import generate_place_text
+from app.core.instances import bot, db_service, redis_service
 from app.core.settings import Settings
 
 logger = logging.getLogger(__name__)
+main_router = Router()
+
 
 MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
 START_IMG_PATH = "app/data/images/start_img.jpg"
@@ -39,7 +39,7 @@ class FilterStates(StatesGroup):
 
 
 # отправка места на модерацию
-@dp.callback_query(F.data == "place_bad")
+@main_router.callback_query(F.data == "place_bad")
 async def process_place_bad(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
 
@@ -92,7 +92,7 @@ async def process_place_bad(callback_query: types.CallbackQuery):
     await db_service.mark_place_as_viewed(user_id, place.get("name"))
 
 
-@dp.callback_query(F.data == "reset_location")
+@main_router.callback_query(F.data == "reset_location")
 async def reset_location(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user = await db_service.get_user(user_id)
@@ -128,14 +128,14 @@ async def reset_location(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id)
 
 
-@dp.callback_query(F.data == "reset_viewed")
+@main_router.callback_query(F.data == "reset_viewed")
 async def reset_viewed(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     await db_service.reset_viewed(user_id)
     await callback.answer()
 
 
-@dp.callback_query(F.data == "reset_all_filters")
+@main_router.callback_query(F.data == "reset_all_filters")
 async def reset_all_filters(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
@@ -163,7 +163,7 @@ async def reset_all_filters(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "reset_all_filters")
 
 
-@dp.callback_query(F.data == "reset_all_categories")
+@main_router.callback_query(F.data == "reset_all_categories")
 async def reset_all_categories(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
@@ -192,7 +192,7 @@ async def reset_all_categories(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "reset_all_categories")
 
 
-@dp.callback_query(F.data == "reset_all_wishes")
+@main_router.callback_query(F.data == "reset_all_wishes")
 async def reset_all_wishes(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
@@ -380,7 +380,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
 
 
 # Обработчики команд
-@dp.message(Command("start"))
+@main_router.message(Command("start"))
 async def cmd_start(message: types.Message):
     logger.info("cmd_start")
     user_id = message.from_user.id
@@ -421,7 +421,7 @@ async def cmd_start(message: types.Message):
     await delete_user_message(message)
 
 
-@dp.message(Command("stats"))  # need fix
+@main_router.message(Command("stats"))  # need fix
 async def daily_report(message: types.Message = None, by_timer=False):
     chat_id = message.chat.id
     if by_timer:
@@ -445,7 +445,7 @@ async def daily_report(message: types.Message = None, by_timer=False):
 
 
 # Обработчики главного меню
-@dp.callback_query(F.data == "view_places_main")
+@main_router.callback_query(F.data == "view_places_main")
 async def show_places_main(callback: types.CallbackQuery):
     logger.info("show_places_main")
     user_id = callback.from_user.id
@@ -502,7 +502,7 @@ async def show_places_main(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "view_places_main")
 
 
-@dp.callback_query(F.data == "view_nearby_places")
+@main_router.callback_query(F.data == "view_nearby_places")
 async def view_nearby_places(callback: types.CallbackQuery):
     logger.info("view_nearby")
     user_id = callback.from_user.id
@@ -535,7 +535,7 @@ async def view_nearby_places(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data == "view_recommended_places")
+@main_router.callback_query(F.data == "view_recommended_places")
 async def view_recommended_places(callback: types.CallbackQuery):
     logger.info("view_recommended")
     user_id = callback.from_user.id
@@ -568,7 +568,7 @@ async def view_recommended_places(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data == "show_categories_main")
+@main_router.callback_query(F.data == "show_categories_main")
 async def show_categories_main(callback: types.CallbackQuery):
     try:
         await callback.message.edit_text(
@@ -590,7 +590,7 @@ async def show_categories_main(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "show_categories_main")
 
 
-@dp.callback_query(F.data == "show_filters_main")
+@main_router.callback_query(F.data == "show_filters_main")
 async def show_filters_main(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
@@ -622,7 +622,7 @@ async def show_filters_main(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "show_filters_main")
 
 
-@dp.callback_query(F.data.startswith("filters_page_"))
+@main_router.callback_query(F.data.startswith("filters_page_"))
 async def handle_filters_page(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     page = int(callback.data.split("_")[2])
@@ -656,7 +656,7 @@ async def handle_filters_page(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id)
 
 
-@dp.callback_query(F.data.startswith("filter_"))
+@main_router.callback_query(F.data.startswith("filter_"))
 async def handle_filter_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
@@ -711,7 +711,7 @@ async def handle_filter_selection(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id)
 
 
-@dp.callback_query(F.data == "search_filter")
+@main_router.callback_query(F.data == "search_filter")
 async def search_filter(callback: types.CallbackQuery, state: FSMContext):
     try:
         await callback.message.edit_text(
@@ -732,7 +732,7 @@ async def search_filter(callback: types.CallbackQuery, state: FSMContext):
     await db_service.update_user_activity(callback.from_user.id)
 
 
-@dp.message(FilterStates.waiting_for_filter_name)
+@main_router.message(FilterStates.waiting_for_filter_name)
 async def process_filter_search(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     filter_name = message.text.strip()
@@ -783,7 +783,7 @@ async def process_filter_search(message: types.Message, state: FSMContext):
     await db_service.update_user_activity(message.from_user.id)
 
 
-@dp.callback_query(F.data == "confirm_filters")
+@main_router.callback_query(F.data == "confirm_filters")
 async def confirm_filters(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
@@ -822,7 +822,7 @@ async def confirm_filters(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "confirm_filters")
 
 
-@dp.callback_query(F.data == "show_geolocation_main")
+@main_router.callback_query(F.data == "show_geolocation_main")
 async def show_geolocation_main(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user = await db_service.get_user(user_id)
@@ -875,7 +875,7 @@ async def show_geolocation_main(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "show_geolocation_main")
 
 
-@dp.callback_query(F.data == "request_location")
+@main_router.callback_query(F.data == "request_location")
 async def request_location(callback: types.CallbackQuery):
     try:
         await callback.message.edit_text(
@@ -898,7 +898,7 @@ async def request_location(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@dp.message(F.content_type == "location")
+@main_router.message(F.content_type == "location")
 async def handle_location(message: types.Message):
     user_id = message.from_user.id
     latitude = message.location.latitude
@@ -949,7 +949,7 @@ async def handle_location(message: types.Message):
     await db_service.update_user_activity(message.from_user.id)
 
 
-@dp.callback_query(F.data == "show_help_main")
+@main_router.callback_query(F.data == "show_help_main")
 async def show_help_main(callback: types.CallbackQuery):
     try:
         await callback.message.edit_text(text=MsgConstants.HELP_TEXT.value, reply_markup=get_back_to_main_keyboard())
@@ -967,7 +967,7 @@ async def show_help_main(callback: types.CallbackQuery):
 
 
 # Обработчики инлайн кнопок
-@dp.callback_query(F.data.in_(MsgConstants.CATEGORIES_TYPES.value))
+@main_router.callback_query(F.data.in_(MsgConstants.CATEGORIES_TYPES.value))
 async def handle_category_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     category = callback.data
@@ -1004,7 +1004,7 @@ async def handle_category_selection(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id)
 
 
-@dp.callback_query(F.data == "confirm_categories")
+@main_router.callback_query(F.data == "confirm_categories")
 async def confirm_categories(callback: types.CallbackQuery):
     try:
         await callback.message.edit_text(
@@ -1025,7 +1025,7 @@ async def confirm_categories(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "confirm_categories")
 
 
-@dp.callback_query(F.data.in_(MsgConstants.WISHES_TYPES.value))
+@main_router.callback_query(F.data.in_(MsgConstants.WISHES_TYPES.value))
 async def handle_wish_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     wish = callback.data
@@ -1059,7 +1059,7 @@ async def handle_wish_selection(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id)
 
 
-@dp.callback_query(F.data == "confirm_wishes")
+@main_router.callback_query(F.data == "confirm_wishes")
 async def confirm_wishes(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
@@ -1117,7 +1117,7 @@ async def confirm_wishes(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "confirm_wishes")
 
 
-@dp.callback_query(F.data == "main_menu")
+@main_router.callback_query(F.data == "main_menu")
 async def back_to_main_menu(callback: types.CallbackQuery):
     photo = FSInputFile(START_IMG_PATH)
 
@@ -1132,7 +1132,7 @@ async def back_to_main_menu(callback: types.CallbackQuery):
     await db_service.update_user_activity(callback.from_user.id, "main_menu")
 
 
-@dp.callback_query(F.data.in_(["place_prev", "place_next"]))
+@main_router.callback_query(F.data.in_(["place_prev", "place_next"]))
 async def navigate_places(callback: types.CallbackQuery):
     logger.info("navigate")
     user_id = callback.from_user.id
@@ -1178,7 +1178,7 @@ async def navigate_places(callback: types.CallbackQuery):
 
 
 # Обработчик отмены состояния фильтра
-@dp.callback_query(F.data == "show_filters_main", FilterStates.waiting_for_filter_name)
+@main_router.callback_query(F.data == "show_filters_main", FilterStates.waiting_for_filter_name)
 async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext):
     logger.info("-----------")
     user_id = callback.from_user.id
@@ -1215,7 +1215,7 @@ async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext)
 
 
 # Обработчик всех текстовых сообщений (удаление)
-@dp.message()
+@main_router.message()
 async def delete_all_messages(message: types.Message):
     await delete_user_message(message)
 

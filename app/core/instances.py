@@ -11,53 +11,12 @@ from app.repositories.redis_repo import RedisRepo
 from app.services.db_service import DbService
 from app.services.redis_service import RedisService
 
+bot = Bot(token=Settings.BOT_TOKEN, parse_mode=ParseMode.HTML, bot=DefaultBotProperties())
+dp = Dispatcher()
+scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
 
-class Factory:
-    _instance = None
+db_repo = DbRepo()
+db_service = DbService(db_repo)
 
-    def __init__(self):
-        self._settings = Settings()
-        self._singleton = {}
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def get_bot(self):
-        if not self._singleton.get("bot"):
-            self._singleton["bot"] = Bot(
-                token=self._settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-            )
-        return self._singleton["bot"]
-
-    def get_dp(self):
-        if not self._singleton.get("dp"):
-            self._singleton["dp"] = Dispatcher()
-        return self._singleton["dp"]
-
-    def get_scheduler(self):
-        if not self._singleton.get("sch"):
-            self._singleton["sch"] = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
-        return self._singleton["sch"]
-
-    def get_db_service(self):
-        if not self._singleton.get("db_serv"):
-            db_repo = DbRepo()
-            self._singleton["db_serv"] = DbService(db_repo)
-        return self._singleton["db_serv"]
-
-    def get_redis_service(self):
-        if not self._singleton.get("redis_serv"):
-            redis_repo = RedisRepo(Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, decode_responses=True))
-            self._singleton["redis_serv"] = DbService(redis_repo)
-        return self._singleton["redis_serv"]
-
-    # dp = Dispatcher()
-    # scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
-
-    # db_repo = DbRepo()
-    # db_service = DbService(db_repo)
-
-    # redis_repo = RedisRepo(Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, decode_responses=True))
-    # redis_service = RedisService(redis_repo)
+redis_repo = RedisRepo(Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, decode_responses=True))
+redis_service = RedisService(redis_repo)

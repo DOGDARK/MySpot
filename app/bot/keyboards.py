@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.bot_utils.msg_constants import AVAILABLE_FILTERS, MsgConstants
+from app.bot.msg_constants import AVAILABLE_FILTERS, MsgConstants
 from app.core.instances import db_service, redis_service
 
 
