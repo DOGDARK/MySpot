@@ -2,15 +2,11 @@ import asyncio
 import logging
 from math import atan2, cos, radians, sin, sqrt
 
-import pytz
-from aiogram import Bot, Dispatcher, F, types
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
+from aiogram import F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.bot_utils.keyboards import (
@@ -26,22 +22,15 @@ from app.bot_utils.keyboards import (
     get_view_places_keyboard,
     get_wishes_keyboard,
 )
-from app.bot_utils.msg_constants import MsgConstants
-from app.bot_utils.utils import AVAILABLE_FILTERS, generate_place_text
-from app.core.instances import db_service, redis_service
+from app.bot_utils.msg_constants import AVAILABLE_FILTERS, MsgConstants
+from app.bot_utils.utils import generate_place_text
+from app.core.instances import bot, db_service, dp, redis_service, scheduler
 from app.core.settings import Settings
 
 logger = logging.getLogger(__name__)
 
 MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
 START_IMG_PATH = "app/data/images/start_img.jpg"
-
-
-bot = Bot(token=Settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher()
-
-# Хранилище данных пользователей
-user_messages: dict[int, int] = {}
 
 
 # Состояния FSM
@@ -1235,32 +1224,31 @@ async def delete_all_messages(message: types.Message):
 
 
 # Запуск бота
-async def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    try:
-        await db_service.init_db(
-            Settings.POSTGRES_USER,
-            Settings.POSTGRES_PASSWORD,
-            Settings.POSTGRES_DB,
-            Settings.POSTGRES_HOST,
-            Settings.POSTGRES_PORT,
-        )
-        await db_service.create_tables()
-        scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
-        scheduler.add_job(db_service.reset_viewed_by_timer, CronTrigger(hour=4, minute=0))
-        scheduler.add_job(daily_report, CronTrigger(hour=0, minute=0), kwargs={"by_timer": True})
-        scheduler.start()
-        logger.info("Starting single-message bot with database support...")
-        logger.info(f"Планировщик задач:, {scheduler.get_jobs()}")
-        await dp.start_polling(bot)
-    finally:
-        logger.info("Error while starting, closing database...")
-        await db_service.close_db()
+# async def main():
+#     logging.basicConfig(
+#         level=logging.INFO,
+#         format="%(asctime)s - %(levelname)s - %(message)s",
+#         datefmt="%Y-%m-%d %H:%M:%S",
+#     )
+#     try:
+#         await db_service.init_db(
+#             Settings.POSTGRES_USER,
+#             Settings.POSTGRES_PASSWORD,
+#             Settings.POSTGRES_DB,
+#             Settings.POSTGRES_HOST,
+#             Settings.POSTGRES_PORT,
+#         )
+#         await db_service.create_tables()
+#         scheduler.add_job(db_service.reset_viewed_by_timer, CronTrigger(hour=4, minute=0))
+#         scheduler.add_job(daily_report, CronTrigger(hour=0, minute=0), kwargs={"by_timer": True})
+#         scheduler.start()
+#         logger.info("Starting single-message bot with database support...")
+#         logger.info(f"Планировщик задач:, {scheduler.get_jobs()}")
+#         await dp.start_polling(bot)
+#     finally:
+#         logger.info("Error while starting, closing database...")
+#         await db_service.close_db()
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())
