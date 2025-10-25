@@ -24,7 +24,7 @@ services:
   app:
     image: my_spot:latest
     env_file: '.env'
-    command: ["python", "-m", "app.bot"]
+    command: ["python", "-m", "app.main"]
     networks:
       - service_network
     depends_on:
@@ -33,4 +33,5 @@ services:
 
 networks:
   service_network:
+
     driver: bridge
