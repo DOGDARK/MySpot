@@ -91,6 +91,10 @@ class DbRepo:
                 user_id,
             )
 
+    async def get_users_ids(self) -> list[asyncpg.Record]:
+        async with self._pool.acquire() as conn:
+            return await conn.fetch("SELECT id FROM users")
+
     async def update_user(
         self,
         user_id: int,

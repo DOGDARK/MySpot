@@ -1,10 +1,11 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.msgs_text import AVAILABLE_FILTERS, MsgsText
-from app.core.instances import db_service, redis_service
+from app.services.db_service import DbService
+from app.services.redis_service import RedisService
 
 
-async def get_filters_keyboard(user_id: int, page: int = 0) -> InlineKeyboardMarkup:
+async def get_filters_keyboard(user_id: int, db_service: DbService, page: int = 0) -> InlineKeyboardMarkup:
     user_filters = await db_service.get_user_filters(user_id)
     buttons = []
 
@@ -86,7 +87,7 @@ def get_reset_geolocation_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_categories_keyboard(user_id: int) -> InlineKeyboardMarkup:
+def get_categories_keyboard(user_id: int, redis_service: RedisService) -> InlineKeyboardMarkup:
     selected_categories = redis_service.get_user_data(user_id).get("selected_categories", [])
     buttons = []
 
@@ -105,7 +106,7 @@ def get_categories_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_wishes_keyboard(user_id: int) -> InlineKeyboardMarkup:
+def get_wishes_keyboard(user_id: int, redis_service: RedisService) -> InlineKeyboardMarkup:
     selected_wishes = redis_service.get_user_data(user_id).get("selected_wishes", [])
     buttons = []
 

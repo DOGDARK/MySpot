@@ -6,7 +6,9 @@ from aiogram import Bot, types
 from aiogram.types import InlineKeyboardMarkup
 
 from app.bot.base_keyboards import get_places_keyboard
-from app.core.instances import db_service, redis_service
+from app.services import redis_service
+from app.services.db_service import DbService
+from app.services.redis_service import RedisService
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,9 @@ async def delete_user_message(message: types.Message):
         logger.error(f"Error while deleting user msg, {e}")
 
 
-async def update_or_send_message(chat_id: int, text: str, bot: Bot, reply_markup=None, photo_url: str = None):
+async def update_or_send_message(
+    chat_id: int, text: str, bot: Bot, redis_service: RedisService, reply_markup=None, photo_url: str = None
+):
     """Обновить существующее сообщение или отправить новое"""
     logger.info("update_or_send")
     last_msg = redis_service.get_user_msg(chat_id)
@@ -96,7 +100,9 @@ async def update_or_send_message(chat_id: int, text: str, bot: Bot, reply_markup
             return None
 
 
-async def show_place(user_id: int, chat_id: int, index: int, bot: Bot):
+async def show_place(
+    user_id: int, chat_id: int, index: int, bot: Bot, db_service: DbService, redis_service: redis_service
+):
     logger.info(f"show_place {user_id=}")
     places = redis_service.get_user_data(user_id).get("places", [])
     logger.info(f"{len(places)=}")
@@ -156,16 +162,25 @@ async def show_place(user_id: int, chat_id: int, index: int, bot: Bot):
                 chat_id=chat_id,
                 text=place_text,
                 bot=bot,
+                redis_service=redis_service,
                 reply_markup=get_places_keyboard(),
                 photo_url=photo_url,
             )
         except Exception as e:
             logger.error(f"Error sending photo message: {e}")
             # Если не удалось отправить с фото, отправляем без фото
-            await update_or_send_message(chat_id=chat_id, text=place_text, bot=bot, reply_markup=get_places_keyboard())
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=place_text,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=get_places_keyboard(),
+            )
     else:
         # Если фото нет или ссылка невалидна, отправляем без фото
-        await update_or_send_message(chat_id=chat_id, text=place_text, bot=bot, reply_markup=get_places_keyboard())
+        await update_or_send_message(
+            chat_id=chat_id, text=place_text, bot=bot, redis_service=redis_service, reply_markup=get_places_keyboard()
+        )
     # Помечаем место как просмотренное по названию
     await db_service.mark_place_as_viewed(user_id, place.get("name"))
 
@@ -192,11 +207,11 @@ def generate_place_text(
 async def notify_users(
     bot: Bot,
     msg_text: str,
+    users_ids: list[int],
     photo_id: Optional[int] = None,
     reply_markup: Optional[InlineKeyboardMarkup] = None,
 ) -> None:
     pass
-    users_ids = [1518700056]
     for user_id in users_ids:
         if photo_id:
             await bot.send_photo(chat_id=user_id, photo=photo_id, caption=msg_text, reply_markup=reply_markup)

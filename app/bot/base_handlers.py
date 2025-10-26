@@ -1,6 +1,6 @@
 import logging
 
-from aiogram import F, Router, types
+from aiogram import Bot, F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -21,8 +21,9 @@ from app.bot.base_keyboards import (
 from app.bot.constants import Constants
 from app.bot.msgs_text import AVAILABLE_FILTERS, MsgsText
 from app.bot.utils import delete_user_message, generate_place_text, show_place, update_or_send_message
-from app.core.instances import bot, db_service, redis_service
 from app.core.settings import Settings
+from app.services.db_service import DbService
+from app.services.redis_service import RedisService
 
 logger = logging.getLogger(__name__)
 base_router = Router()
@@ -39,7 +40,7 @@ class FilterStates(StatesGroup):
 
 # отправка места на модерацию
 @base_router.callback_query(F.data == "place_bad")
-async def process_place_bad(callback_query: types.CallbackQuery):
+async def process_place_bad(callback_query: types.CallbackQuery, redis_service: RedisService, db_service: DbService):
     user_id = callback_query.from_user.id
 
     user_data = redis_service.get_user_data(user_id)
@@ -92,7 +93,7 @@ async def process_place_bad(callback_query: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "reset_location")
-async def reset_location(callback: types.CallbackQuery):
+async def reset_location(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot):
     user_id = callback.from_user.id
     user = await db_service.get_user(user_id)
 
@@ -116,7 +117,11 @@ async def reset_location(callback: types.CallbackQuery):
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
-            chat_id=chat_id, text=MsgsText.RESET_GEO.value, bot=bot, reply_markup=get_reset_geolocation_keyboard()
+            chat_id=chat_id,
+            text=MsgsText.RESET_GEO.value,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_reset_geolocation_keyboard(),
         )
 
     await callback.answer()
@@ -126,14 +131,16 @@ async def reset_location(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "reset_viewed")
-async def reset_viewed(callback: types.CallbackQuery):
+async def reset_viewed(callback: types.CallbackQuery, db_service: DbService):
     user_id = callback.from_user.id
     await db_service.reset_viewed(user_id)
     await callback.answer()
 
 
 @base_router.callback_query(F.data == "reset_all_filters")
-async def reset_all_filters(callback: types.CallbackQuery):
+async def reset_all_filters(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     user_id = callback.from_user.id
 
     # Сбрасываем все фильтры
@@ -143,7 +150,7 @@ async def reset_all_filters(callback: types.CallbackQuery):
 
     try:
         await callback.message.edit_text(
-            text=MsgsText.NO_FILTERS.value, reply_markup=await get_filters_keyboard(user_id, 0)
+            text=MsgsText.NO_FILTERS.value, reply_markup=await get_filters_keyboard(user_id, db_service, 0)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -152,7 +159,8 @@ async def reset_all_filters(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=MsgsText.NO_FILTERS.value,
             bot=bot,
-            reply_markup=await get_filters_keyboard(user_id, 0),
+            redis_service=redis_service,
+            reply_markup=await get_filters_keyboard(user_id, db_service, 0),
         )
 
     await callback.answer("Все фильтры сброшены")
@@ -162,7 +170,9 @@ async def reset_all_filters(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "reset_all_categories")
-async def reset_all_categories(callback: types.CallbackQuery):
+async def reset_all_categories(
+    callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
+):
     user_id = callback.from_user.id
 
     # Сбрасываем все категории
@@ -172,7 +182,9 @@ async def reset_all_categories(callback: types.CallbackQuery):
     # Обновляем сообщение
 
     try:
-        await callback.message.edit_text(text=MsgsText.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id))
+        await callback.message.edit_text(
+            text=MsgsText.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id, redis_service)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
@@ -180,7 +192,8 @@ async def reset_all_categories(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=MsgsText.CATEGORIES.value,
             bot=bot,
-            reply_markup=get_categories_keyboard(user_id),
+            redis_service=redis_service,
+            reply_markup=get_categories_keyboard(user_id, redis_service),
         )
 
     await callback.answer("Все категории сброшены")
@@ -190,7 +203,7 @@ async def reset_all_categories(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "reset_all_wishes")
-async def reset_all_wishes(callback: types.CallbackQuery):
+async def reset_all_wishes(callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot):
     user_id = callback.from_user.id
 
     # Сбрасываем все пожелания
@@ -200,12 +213,18 @@ async def reset_all_wishes(callback: types.CallbackQuery):
     # Обновляем сообщение
 
     try:
-        await callback.message.edit_text(text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(user_id))
+        await callback.message.edit_text(
+            text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(user_id, redis_service)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
-            chat_id=chat_id, text=MsgsText.WISHES.value, bot=bot, reply_markup=get_wishes_keyboard(user_id)
+            chat_id=chat_id,
+            text=MsgsText.WISHES.value,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_wishes_keyboard(user_id, redis_service),
         )
 
     await callback.answer("Все пожелания сброшены")
@@ -216,7 +235,7 @@ async def reset_all_wishes(callback: types.CallbackQuery):
 
 # Обработчики команд
 @base_router.message(Command("start"))
-async def cmd_start(message: types.Message):
+async def cmd_start(message: types.Message, redis_service: RedisService, db_service: DbService, bot: Bot):
     logger.info("cmd_start")
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -252,6 +271,7 @@ async def cmd_start(message: types.Message):
         chat_id=message.chat.id,
         text=MsgsText.WELCOME.value,
         bot=bot,
+        redis_service=redis_service,
         reply_markup=get_main_keyboard(),
         photo_url=photo,
     )
@@ -266,7 +286,7 @@ async def help_cmd_handler(message: types.Message):
 
 
 @base_router.message(Command("stats"))  # need fix
-async def daily_report(message: types.Message = None, by_timer=False):
+async def daily_report(db_service: DbService, bot: Bot, message: types.Message = None, by_timer=False):
     chat_id = message.chat.id
     if by_timer:
         stats = db_service.user_count
@@ -290,7 +310,7 @@ async def daily_report(message: types.Message = None, by_timer=False):
 
 # Обработчики главного меню
 @base_router.callback_query(F.data == "view_places_main")
-async def show_places_main(callback: types.CallbackQuery):
+async def show_places_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot):
     logger.info("show_places_main")
     user_id = callback.from_user.id
     user = await db_service.get_user(user_id)
@@ -306,7 +326,11 @@ async def show_places_main(callback: types.CallbackQuery):
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
             await update_or_send_message(
-                chat_id=chat_id, text=MsgsText.ALL_VIEWED.value, bot=bot, reply_markup=get_update_keyboard()
+                chat_id=chat_id,
+                text=MsgsText.ALL_VIEWED.value,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=get_update_keyboard(),
             )
 
         await callback.answer()
@@ -329,7 +353,11 @@ async def show_places_main(callback: types.CallbackQuery):
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
             await update_or_send_message(
-                chat_id=chat_id, text=MsgsText.VIEW_CHOICE.value, bot=bot, reply_markup=keyboard
+                chat_id=chat_id,
+                text=MsgsText.VIEW_CHOICE.value,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=keyboard,
             )
     else:
         # Если нет геолокации, показываем обычные рекомендации
@@ -340,7 +368,7 @@ async def show_places_main(callback: types.CallbackQuery):
         redis_service.set_user_data_params(user_id, {"places": places})
 
         # Показываем первое место
-        await show_place(user_id, callback.message.chat.id, 0, bot)
+        await show_place(user_id, callback.message.chat.id, 0, bot, db_service, redis_service)
 
     await callback.answer()
 
@@ -349,7 +377,9 @@ async def show_places_main(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "view_nearby_places")
-async def view_nearby_places(callback: types.CallbackQuery):
+async def view_nearby_places(
+    callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
+):
     logger.info("view_nearby")
     user_id = callback.from_user.id
     redis_service.set_user_data_params(user_id, {"current_place_index": 0})
@@ -368,7 +398,11 @@ async def view_nearby_places(callback: types.CallbackQuery):
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
             await update_or_send_message(
-                chat_id=chat_id, text=MsgsText.NO_PLACES_NEAR.value, bot=bot, reply_markup=keyboard
+                chat_id=chat_id,
+                text=MsgsText.NO_PLACES_NEAR.value,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=keyboard,
             )
 
         await callback.answer()
@@ -378,13 +412,15 @@ async def view_nearby_places(callback: types.CallbackQuery):
     redis_service.set_user_data_params(user_id, {"places": places})
 
     # Показываем первое место
-    await show_place(user_id, callback.message.chat.id, 0, bot)
+    await show_place(user_id, callback.message.chat.id, 0, bot, db_service, redis_service)
 
     await callback.answer()
 
 
 @base_router.callback_query(F.data == "view_recommended_places")
-async def view_recommended_places(callback: types.CallbackQuery):
+async def view_recommended_places(
+    callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
+):
     logger.info("view_recommended")
     user_id = callback.from_user.id
     redis_service.set_user_data_params(user_id, {"current_place_index": 0})
@@ -402,7 +438,13 @@ async def view_recommended_places(callback: types.CallbackQuery):
         except Exception as e:
             logger.error(f"Error editing message: {e}")
             chat_id = callback.message.chat.id
-            await update_or_send_message(chat_id=chat_id, text=MsgsText.NO_PLACES.value, bot=bot, reply_markup=keyboard)
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=MsgsText.NO_PLACES.value,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=keyboard,
+            )
 
         await callback.answer()
         return
@@ -411,17 +453,19 @@ async def view_recommended_places(callback: types.CallbackQuery):
     redis_service.set_user_data_params(user_id, {"places": places})
 
     # Показываем первое место
-    await show_place(user_id, callback.message.chat.id, 0, bot)
+    await show_place(user_id, callback.message.chat.id, 0, bot, db_service, redis_service)
 
     await callback.answer()
 
 
 @base_router.callback_query(F.data == "show_categories_main")
-async def show_categories_main(callback: types.CallbackQuery):
+async def show_categories_main(
+    callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
+):
     try:
         await callback.message.edit_text(
             text=MsgsText.CATEGORIES.value,
-            reply_markup=get_categories_keyboard(callback.from_user.id),
+            reply_markup=get_categories_keyboard(callback.from_user.id, redis_service),
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -430,7 +474,8 @@ async def show_categories_main(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=MsgsText.CATEGORIES.value,
             bot=bot,
-            reply_markup=get_categories_keyboard(callback.from_user.id),
+            redis_service=redis_service,
+            reply_markup=get_categories_keyboard(callback.from_user.id, redis_service),
         )
 
     await callback.answer()
@@ -440,7 +485,9 @@ async def show_categories_main(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "show_filters_main")
-async def show_filters_main(callback: types.CallbackQuery):
+async def show_filters_main(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
 
@@ -455,7 +502,9 @@ async def show_filters_main(callback: types.CallbackQuery):
     filters_text += "\nПосле выбора нажмите 'Подтвердить'"
 
     try:
-        await callback.message.edit_text(text=filters_text, reply_markup=await get_filters_keyboard(user_id, 0))
+        await callback.message.edit_text(
+            text=filters_text, reply_markup=await get_filters_keyboard(user_id, db_service, 0)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
@@ -463,7 +512,8 @@ async def show_filters_main(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=filters_text,
             bot=bot,
-            reply_markup=await get_filters_keyboard(user_id, 0),
+            redis_service=redis_service,
+            reply_markup=await get_filters_keyboard(user_id, db_service, 0),
         )
 
     await callback.answer()
@@ -473,7 +523,9 @@ async def show_filters_main(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data.startswith("filters_page_"))
-async def handle_filters_page(callback: types.CallbackQuery):
+async def handle_filters_page(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     user_id = callback.from_user.id
     page = int(callback.data.split("_")[2])
 
@@ -490,7 +542,9 @@ async def handle_filters_page(callback: types.CallbackQuery):
     filters_text += "\nПосле выбора нажмите 'Подтвердить'"
 
     try:
-        await callback.message.edit_text(text=filters_text, reply_markup=await get_filters_keyboard(user_id, page))
+        await callback.message.edit_text(
+            text=filters_text, reply_markup=await get_filters_keyboard(user_id, db_service, page)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
@@ -498,7 +552,8 @@ async def handle_filters_page(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=filters_text,
             bot=bot,
-            reply_markup=await get_filters_keyboard(user_id, page),
+            redis_service=redis_service,
+            reply_markup=await get_filters_keyboard(user_id, db_service, page),
         )
 
     await callback.answer()
@@ -508,7 +563,9 @@ async def handle_filters_page(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data.startswith("filter_"))
-async def handle_filter_selection(callback: types.CallbackQuery):
+async def handle_filter_selection(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     user_id = callback.from_user.id
 
     # Разбираем callback_data: filter_индекс_страница
@@ -545,7 +602,7 @@ async def handle_filter_selection(callback: types.CallbackQuery):
 
     try:
         await callback.message.edit_text(
-            text=filters_text, reply_markup=await get_filters_keyboard(user_id, current_page)
+            text=filters_text, reply_markup=await get_filters_keyboard(user_id, db_service, current_page)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -554,7 +611,8 @@ async def handle_filter_selection(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=filters_text,
             bot=bot,
-            reply_markup=await get_filters_keyboard(user_id, current_page),
+            redis_service=redis_service,
+            reply_markup=await get_filters_keyboard(user_id, db_service, current_page),
         )
 
     await callback.answer()
@@ -564,14 +622,20 @@ async def handle_filter_selection(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "search_filter")
-async def search_filter(callback: types.CallbackQuery, state: FSMContext):
+async def search_filter(
+    callback: types.CallbackQuery, state: FSMContext, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     try:
         await callback.message.edit_text(text=MsgsText.SEARCH_FILTER.value, reply_markup=get_back_to_filters_keyboard())
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
-            chat_id=chat_id, text=MsgsText.SEARCH_FILTER.value, bot=bot, reply_markup=get_back_to_filters_keyboard()
+            chat_id=chat_id,
+            text=MsgsText.SEARCH_FILTER.value,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_back_to_filters_keyboard(),
         )
 
     # Устанавливаем состояние ожидания названия фильтра
@@ -583,7 +647,9 @@ async def search_filter(callback: types.CallbackQuery, state: FSMContext):
 
 
 @base_router.message(FilterStates.waiting_for_filter_name)
-async def process_filter_search(message: types.Message, state: FSMContext):
+async def process_filter_search(
+    message: types.Message, state: FSMContext, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     user_id = message.from_user.id
     filter_name = message.text.strip()
 
@@ -608,7 +674,8 @@ async def process_filter_search(message: types.Message, state: FSMContext):
             chat_id=message.chat.id,
             text=success_text,
             bot=bot,
-            reply_markup=await get_filters_keyboard(user_id, filter_page),  # Переходим на страницу фильтра
+            redis_service=redis_service,
+            reply_markup=await get_filters_keyboard(user_id, db_service, filter_page),  # Переходим на страницу фильтра
         )
     else:
         error_text = f"""
@@ -622,7 +689,7 @@ async def process_filter_search(message: types.Message, state: FSMContext):
             chat_id=message.chat.id,
             text=error_text,
             bot=bot,
-            reply_markup=await get_filters_keyboard(user_id, 0),
+            reply_markup=await get_filters_keyboard(user_id, db_service, 0),
         )
 
     # Сбрасываем состояние
@@ -636,7 +703,7 @@ async def process_filter_search(message: types.Message, state: FSMContext):
 
 
 @base_router.callback_query(F.data == "confirm_filters")
-async def confirm_filters(callback: types.CallbackQuery):
+async def confirm_filters(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot):
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
 
@@ -645,6 +712,7 @@ async def confirm_filters(callback: types.CallbackQuery):
         callback.message.chat.id,
         MsgsText.PROCESSING.value,
         bot=bot,
+        redis_service=redis_service,
     )
 
     await db_service.create_user_places_table(user_id)
@@ -671,7 +739,11 @@ async def confirm_filters(callback: types.CallbackQuery):
                 logger.error(f"Error while deleting msh {e}")
 
         await update_or_send_message(
-            chat_id=chat_id, text=confirmation_text, bot=bot, reply_markup=get_view_places_keyboard()
+            chat_id=chat_id,
+            text=confirmation_text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_view_places_keyboard(),
         )
 
     await callback.answer()
@@ -681,7 +753,9 @@ async def confirm_filters(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "show_geolocation_main")
-async def show_geolocation_main(callback: types.CallbackQuery):
+async def show_geolocation_main(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     user_id = callback.from_user.id
     user = await db_service.get_user(user_id)
 
@@ -725,7 +799,9 @@ async def show_geolocation_main(callback: types.CallbackQuery):
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
-        await update_or_send_message(chat_id=chat_id, text=geo_text, bot=bot, reply_markup=keyboard)
+        await update_or_send_message(
+            chat_id=chat_id, text=geo_text, bot=bot, redis_service=redis_service, reply_markup=keyboard
+        )
 
     await callback.answer()
 
@@ -734,7 +810,7 @@ async def show_geolocation_main(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "request_location")
-async def request_location(callback: types.CallbackQuery):
+async def request_location(callback: types.CallbackQuery, redis_service: RedisService, bot: Bot):
     try:
         await callback.message.edit_text(
             text=MsgsText.SEND_LOCATION.value,
@@ -749,6 +825,7 @@ async def request_location(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=MsgsText.SEND_LOCATION.value,
             bot=bot,
+            redis_service=redis_service,
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text="↩️ Назад", callback_data="show_geolocation_main")]]
             ),
@@ -758,7 +835,7 @@ async def request_location(callback: types.CallbackQuery):
 
 
 @base_router.message(F.content_type == "location")
-async def handle_location(message: types.Message):
+async def handle_location(message: types.Message, db_service: DbService, redis_service: RedisService, bot: Bot):
     user_id = message.from_user.id
     latitude = message.location.latitude
     longitude = message.location.longitude
@@ -794,6 +871,7 @@ async def handle_location(message: types.Message):
         chat_id=message.chat.id,
         text=MsgsText.GEO_SAVED.value,
         bot=bot,
+        redis_service=redis_service,
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="📍 Смотреть места рядом", callback_data="view_places_main")],
@@ -810,14 +888,18 @@ async def handle_location(message: types.Message):
 
 
 @base_router.callback_query(F.data == "show_help_main")
-async def show_help_main(callback: types.CallbackQuery):
+async def show_help_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot):
     try:
         await callback.message.edit_text(text=MsgsText.HELP_TEXT.value, reply_markup=get_back_to_main_keyboard())
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
-            chat_id=chat_id, text=MsgsText.HELP_TEXT.value, bot=bot, reply_markup=get_back_to_main_keyboard()
+            chat_id=chat_id,
+            text=MsgsText.HELP_TEXT.value,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_back_to_main_keyboard(),
         )
 
     await callback.answer()
@@ -828,7 +910,9 @@ async def show_help_main(callback: types.CallbackQuery):
 
 # Обработчики инлайн кнопок
 @base_router.callback_query(F.data.in_(MsgsText.CATEGORIES_TYPES.value))
-async def handle_category_selection(callback: types.CallbackQuery):
+async def handle_category_selection(
+    callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
+):
     user_id = callback.from_user.id
     category = callback.data
 
@@ -845,7 +929,9 @@ async def handle_category_selection(callback: types.CallbackQuery):
     # Обновляем сообщение с новым состоянием кнопок
 
     try:
-        await callback.message.edit_text(text=MsgsText.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id))
+        await callback.message.edit_text(
+            text=MsgsText.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id, redis_service)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         # Если не удалось отредактировать, отправляем новое сообщение
@@ -854,7 +940,8 @@ async def handle_category_selection(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=MsgsText.CATEGORIES.value,
             bot=bot,
-            reply_markup=get_categories_keyboard(user_id),
+            redis_service=redis_service,
+            reply_markup=get_categories_keyboard(user_id, redis_service),
         )
 
     await callback.answer()
@@ -864,10 +951,12 @@ async def handle_category_selection(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "confirm_categories")
-async def confirm_categories(callback: types.CallbackQuery):
+async def confirm_categories(
+    callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
+):
     try:
         await callback.message.edit_text(
-            text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(callback.from_user.id)
+            text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(callback.from_user.id, redis_service)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -876,7 +965,8 @@ async def confirm_categories(callback: types.CallbackQuery):
             chat_id=chat_id,
             text=MsgsText.WISHES.value,
             bot=bot,
-            reply_markup=get_wishes_keyboard(callback.from_user.id),
+            redis_service=redis_service,
+            reply_markup=get_wishes_keyboard(callback.from_user.id, redis_service),
         )
 
     await callback.answer()
@@ -886,7 +976,9 @@ async def confirm_categories(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data.in_(MsgsText.WISHES_TYPES.value))
-async def handle_wish_selection(callback: types.CallbackQuery):
+async def handle_wish_selection(
+    callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
+):
     user_id = callback.from_user.id
     wish = callback.data
 
@@ -905,12 +997,18 @@ async def handle_wish_selection(callback: types.CallbackQuery):
     # Обновляем сообщение
 
     try:
-        await callback.message.edit_text(text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(user_id))
+        await callback.message.edit_text(
+            text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(user_id, redis_service)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
         await update_or_send_message(
-            chat_id=chat_id, text=MsgsText.WISHES.value, bot=bot, reply_markup=get_wishes_keyboard(user_id)
+            chat_id=chat_id,
+            text=MsgsText.WISHES.value,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_wishes_keyboard(user_id, redis_service),
         )
 
     await callback.answer()
@@ -920,7 +1018,7 @@ async def handle_wish_selection(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "confirm_wishes")
-async def confirm_wishes(callback: types.CallbackQuery):
+async def confirm_wishes(callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot):
     user_id = callback.from_user.id
 
     user_data = redis_service.get_user_data(user_id)
@@ -933,6 +1031,7 @@ async def confirm_wishes(callback: types.CallbackQuery):
         callback.message.chat.id,
         MsgsText.PROCESSING.value,
         bot=bot,
+        redis_service=redis_service,
     )
 
     # Получаем текущие данные пользователя из базы (включая геопозицию)
@@ -974,7 +1073,11 @@ async def confirm_wishes(callback: types.CallbackQuery):
                 logger.error(f"Error while deleting msg {e}")
 
         await update_or_send_message(
-            chat_id=chat_id, text=confirmation_text, bot=bot, reply_markup=get_view_places_keyboard()
+            chat_id=chat_id,
+            text=confirmation_text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_view_places_keyboard(),
         )
 
     await callback.answer()
@@ -984,13 +1087,20 @@ async def confirm_wishes(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data == "main_menu")
-async def back_to_main_menu(callback: types.CallbackQuery):
+async def back_to_main_menu(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     photo = FSInputFile(START_IMG_PATH)
 
     chat_id = callback.message.chat.id
 
     await update_or_send_message(
-        chat_id=chat_id, text=MsgsText.WELCOME.value, bot=bot, reply_markup=get_main_keyboard(), photo_url=photo
+        chat_id=chat_id,
+        text=MsgsText.WELCOME.value,
+        bot=bot,
+        redis_service=redis_service,
+        reply_markup=get_main_keyboard(),
+        photo_url=photo,
     )
     await callback.answer()
 
@@ -999,7 +1109,7 @@ async def back_to_main_menu(callback: types.CallbackQuery):
 
 
 @base_router.callback_query(F.data.in_(["place_prev", "place_next"]))
-async def navigate_places(callback: types.CallbackQuery):
+async def navigate_places(callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot):
     logger.info("navigate")
     user_id = callback.from_user.id
     user_data = redis_service.get_user_data(user_id)
@@ -1029,7 +1139,11 @@ async def navigate_places(callback: types.CallbackQuery):
                 logger.error(f"Error editing message: {e}")
                 chat_id = callback.message.chat.id
                 await update_or_send_message(
-                    chat_id=chat_id, text=MsgsText.ALL_VIEWED.value, bot=bot, reply_markup=keyboard
+                    chat_id=chat_id,
+                    text=MsgsText.ALL_VIEWED.value,
+                    bot=bot,
+                    redis_service=redis_service,
+                    reply_markup=keyboard,
                 )
             await callback.answer()
             return
@@ -1037,7 +1151,7 @@ async def navigate_places(callback: types.CallbackQuery):
     redis_service.set_user_data_params(user_id, {"current_place_index": current_index})
 
     # Показываем место
-    await show_place(user_id, callback.message.chat.id, current_index, bot)
+    await show_place(user_id, callback.message.chat.id, current_index, bot, db_service, redis_service)
 
     await callback.answer()
 
@@ -1047,7 +1161,9 @@ async def navigate_places(callback: types.CallbackQuery):
 
 # Обработчик отмены состояния фильтра
 @base_router.callback_query(F.data == "show_filters_main", FilterStates.waiting_for_filter_name)
-async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext):
+async def cancel_filter_search(
+    callback: types.CallbackQuery, state: FSMContext, db_service: DbService, redis_service: RedisService, bot: Bot
+):
     logger.info("-----------")
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
@@ -1063,7 +1179,9 @@ async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext)
     filters_text += "\nПосле выбора нажмите 'Подтвердить'"
 
     try:
-        await callback.message.edit_text(text=filters_text, reply_markup=await get_filters_keyboard(user_id, 0))
+        await callback.message.edit_text(
+            text=filters_text, reply_markup=await get_filters_keyboard(user_id, db_service, 0)
+        )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
         chat_id = callback.message.chat.id
@@ -1071,7 +1189,8 @@ async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext)
             chat_id=chat_id,
             text=filters_text,
             bot=bot,
-            reply_markup=await get_filters_keyboard(user_id, 0),
+            redis_service=redis_service,
+            reply_markup=await get_filters_keyboard(user_id, db_service, 0),
         )
 
     # Сбрасываем состояние
@@ -1085,7 +1204,7 @@ async def cancel_filter_search(callback: types.CallbackQuery, state: FSMContext)
 
 # Обработчик всех текстовых сообщений (удаление)
 @base_router.message(~F.chat.id.in_(Constants.ADMIN_IDS.value))
-async def delete_all_messages(message: types.Message):
+async def delete_all_messages(message: types.Message, db_service: DbService):
     await delete_user_message(message)
 
     # Обновляем время последней активности

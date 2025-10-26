@@ -8,17 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class DbService:
-    _instance = None
-
     def __init__(self, repo: DbRepo) -> None:
         self._repo = repo
         self.user_count = 0
-
-    def __new__(cls, repo=None):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._repo = repo
-        return cls._instance
 
     async def init_db(self, user, password, database, host, port, min_size=10, max_size=30) -> None:
         await self._repo.init(user, password, database, host, port, min_size, max_size)
@@ -42,6 +34,10 @@ class DbService:
             if row
             else None
         )
+
+    async def get_users_ids(self) -> list[int]:
+        rows = await self._repo.get_users_ids()
+        return [row["id"] for row in rows]
 
     async def change_user_count(self, reset=False):
         if reset:
