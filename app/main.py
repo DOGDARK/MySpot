@@ -70,6 +70,9 @@ async def main():
             CronTrigger(hour=4, minute=0),
             misfire_grace_time=300,
         )
+
+        #scheduler.add (create_stats, args(db_service, redis_service, bot))
+
         scheduler.start()
         logger.info(f"Scheduler jobs: {scheduler.get_jobs()}")
 

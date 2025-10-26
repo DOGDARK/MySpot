@@ -67,3 +67,11 @@ async def create_notification_task(
     )
 
     await message.answer("Рассылка добавлена")
+
+
+#@admin_router.callback_handler(F.data == "stats")
+# def stats(redis_service: Redis_service, db_service: DbService)
+#  daily_count= redis_service.get_stats()
+#  all_count = db_service.users_count
+# text = f"{daily_count}, "all_count"
+#await callback_answer(text)

@@ -35,3 +35,8 @@ class RedisService:
 
     def close_redis(self):
         self._repo.close()
+
+
+    #def get_stats()
+    # self._repo.get("daily_count")
+    
