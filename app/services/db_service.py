@@ -1,10 +1,9 @@
 import json
 import logging
-from typing import Any, Optional
 from random import randrange
+from typing import Any, Optional
 
 from app.repositories.db_repo import DbRepo
-from app.services.redis_service import RedisService
 
 logger = logging.getLogger(__name__)
 
@@ -41,15 +40,8 @@ class DbService:
         rows = await self._repo.get_users_ids()
         return [row["id"] for row in rows]
 
-    async def change_user_count(self, redis_service: RedisService, reset=False):
-        if reset:
-            await redis_service.set_stats(user_count=0)
-        else:
-            await redis_service.set_stats(redis_service.get_stats + 1)
-
-    async def user_counts(self, redis_service: RedisService):
-        total = await self._repo.user_count()
-        return [redis_service.get_stats, total]
+    async def get_users_count(self) -> int:
+        return await self._repo.get_users_count()
 
     async def get_categories_and_wishes(self, place: dict[Any, Any]) -> tuple[str, str]:
         name, address = place.get("name"), place.get("address")
@@ -113,7 +105,6 @@ class DbService:
         else:
             # Создаем нового пользователя
             await self._repo.create_user(user_id, categories_str, wishes_str, filters_str, latitude, longitude)
-            await self.change_user_count()
 
     async def update_user_activity(self, user_id: int, last_button: str = None):
         """
@@ -176,16 +167,6 @@ class DbService:
 
             if existing_user:
                 await self._repo.update_user_last_activity(user_id)
-            else:
-                await self._repo.create_user(
-                    user_id,
-                    "",
-                    "",
-                    "",
-                    None,
-                    None,
-                )
-                await self.change_user_count()
 
         except Exception as e:
             logger.error(f"Error updating user activity: {e}")

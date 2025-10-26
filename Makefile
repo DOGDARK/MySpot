@@ -9,7 +9,7 @@ up_db:
 	docker compose -f docker-compose.prod.yml up db -d	
 
 up_loader:
-	docker compose -f docker-compose.loader.prod.yml up -d
+	docker compose -f tmp/docker-compose.loader.prod.yml up -d
 
 down:
 	docker compose -f docker-compose.prod.yml down

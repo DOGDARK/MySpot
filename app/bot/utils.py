@@ -191,7 +191,7 @@ def generate_place_text(
     rating_text: str,
     distance_text: str | None = None,
     categories_text: str | None = None,
-    wishes_text: str | None = None
+    wishes_text: str | None = None,
 ) -> str:
     place_name = (
         f"<a href='{website}'>{place.get('name', 'Не указано')}</a>" if website else place.get("name", "Не указано")
@@ -230,10 +230,3 @@ async def notify_users(
             await bot.send_photo(chat_id=user_id, photo=photo_id, caption=msg_text, reply_markup=reply_markup)
         else:
             await bot.send_message(chat_id=user_id, text=msg_text, reply_markup=reply_markup)
-
-
-#async def create_stats(redis_service: RedisService, db_service:DbService, bot: Bot)
-#   daily_count = db_service.daily_count
-# redis service.set("users_count" , daily)
-# for admin_id in Constants.ADMIN_IDS.value:
-    # bot.send_message(daily_count)

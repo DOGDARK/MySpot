@@ -20,12 +20,12 @@ class NotificationDataRequest(StatesGroup):
 
 
 @admin_router.message(Command("admin"))
-async def cmd_admin(message: types.Message):
+async def cmd_admin(message: types.Message) -> None:
     await message.answer("Выберите действие:", reply_markup=get_main_keyboard())
 
 
 @admin_router.callback_query(F.data == "notification")
-async def handle_notification_button(callback: types.CallbackQuery, state: State):
+async def handle_notification_button(callback: types.CallbackQuery, state: State) -> None:
     await state.set_state(NotificationDataRequest.waiting_for_data)
     await callback.message.answer(
         (
@@ -40,7 +40,7 @@ async def handle_notification_button(callback: types.CallbackQuery, state: State
 @admin_router.message(NotificationDataRequest.waiting_for_data)
 async def create_notification_task(
     message: types.Message, state: State, bot: Bot, scheduler: AsyncIOScheduler, db_service: DbService
-):
+) -> None:
     await state.clear()
     data = message.caption if message.caption else message.text
     spl = data.split("#")
@@ -71,10 +71,9 @@ async def create_notification_task(
 
 
 @admin_router.callback_query(F.data == "stats")
-async def stats(message: types.Message, db_service: DbService):
-    stats = db_service.user_counts()
-    daily_count, all_count = stats[0], stats[1]
-    text = f"""
-сегодня {daily_count} новых пользователей
-всего {all_count} пользователей"""
-    await message.answer(text)
+async def stats(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService) -> None:
+    all_users_count = await db_service.get_users_count()
+    daily_count = redis_service.get_daily_count()
+    text = f"Cегодня {daily_count} новых пользователей\nВсего {all_users_count} пользователей"
+    await callback.message.answer(text)
+    await callback.answer()

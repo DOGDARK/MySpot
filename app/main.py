@@ -1,8 +1,8 @@
 import asyncio
 import logging
-
-import sys
 import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytz
@@ -19,6 +19,7 @@ from app.bot.base_handlers import base_router
 from app.core.settings import Settings
 from app.repositories.db_repo import DbRepo
 from app.repositories.redis_repo import RedisRepo
+from app.services.coordinator import Coordinator
 from app.services.db_service import DbService
 from app.services.redis_service import RedisService
 
@@ -35,6 +36,8 @@ db_service = DbService(db_repo)
 
 redis_repo = RedisRepo(Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, decode_responses=True))
 redis_service = RedisService(redis_repo)
+
+coordinator = Coordinator(db_service, redis_service)
 
 
 async def main():
@@ -62,6 +65,7 @@ async def main():
         dp["scheduler"] = scheduler
         dp["db_service"] = db_service
         dp["redis_service"] = redis_service
+        dp["coordinator"] = coordinator
 
         commands = [
             BotCommand(command="help", description="Помощь"),
@@ -76,9 +80,10 @@ async def main():
         )
 
         scheduler.add_job(
-            db_service.change_user_count(reset=True),
+            redis_service.set_daily_count,
             CronTrigger(hour=0, minute=0),
             misfire_grace_time=300,
+            args=(0,),
         )
 
         scheduler.start()

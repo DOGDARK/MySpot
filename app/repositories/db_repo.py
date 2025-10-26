@@ -221,7 +221,7 @@ class DbRepo:
                 user_id,
             )
 
-    async def user_count(self) -> None:
+    async def get_users_count(self) -> None:
         async with self._pool.acquire() as conn:
             return await conn.fetchval(
                 """
