@@ -8,16 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 class RedisService:
-    _instance = None
-
     def __init__(self, repo: RedisRepo) -> None:
         self._repo = repo
-
-    def __new__(cls, repo=None):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._repo = repo
-        return cls._instance
 
     def set_user_msg(self, chat_id: int, msg_id: int) -> None:
         self._repo.set(f"msg:{chat_id}", msg_id)
@@ -40,3 +32,6 @@ class RedisService:
 
     def get_keys(self, pattern="*") -> list[Any]:
         return self._repo.get_keys(pattern)
+
+    def close_redis(self):
+        self._repo.close()

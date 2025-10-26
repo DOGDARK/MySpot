@@ -21,3 +21,6 @@ class RedisRepo:
     def get_keys(self, pattern: str = "*") -> list[Any]:
         logger.info(f"get keys {pattern=}")
         return self._r.keys(pattern)
+
+    def close(self) -> None:
+        self._r.close()
