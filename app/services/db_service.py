@@ -302,7 +302,7 @@ class DbService:
                 added = False
                 for filt in user_filters:
                     if filt in places_by_filter and places_by_filter[filt]:
-                        idx = randrange(min(3, len(places_by_filter[filt])))
+                        idx = randrange(min(10, len(places_by_filter[filt])))
                         balanced_top.append(places_by_filter[filt].pop(idx))
                         added = True
                     if len(balanced_top) >= 400:
