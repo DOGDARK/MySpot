@@ -285,27 +285,27 @@ async def help_cmd_handler(message: types.Message):
     await message.answer(text=MsgsText.HELP_TEXT.value, reply_markup=get_back_to_main_keyboard())
 
 
-@base_router.message(Command("stats"))  # need fix
-async def daily_report(db_service: DbService, bot: Bot, message: types.Message = None, by_timer=False):
-    chat_id = message.chat.id
-    if by_timer:
-        stats = db_service.user_count
-        stat_message = f"""
-    <b>Статистика пользователей<b>
-    Сегодня {stats[0]} новых пользователей
-    Всего {stats[1]} пользователей
-        """
-        bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
-        db_service.change_user_count(reset=True)
-    else:
-        if chat_id == Settings.MODERATORS_CHAT_ID:
-            stats = await db_service.user_counts()
-            stat_message = f"""
-        <b>Статистика пользователей</b>
-        Сегодня {stats[0]} новых пользователей
-        Всего {stats[1]} пользователей
-            """
-            await bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
+# @base_router.message(Command("stats"))  # need fix
+# async def daily_report(db_service: DbService, bot: Bot, message: types.Message = None, by_timer=False):
+#     chat_id = message.chat.id
+#     if by_timer:
+#         stats = db_service.user_count
+#         stat_message = f"""
+#     <b>Статистика пользователей<b>
+#     Сегодня {stats[0]} новых пользователей
+#     Всего {stats[1]} пользователей
+#         """
+#         bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
+#         await db_service.change_user_count(reset=True)
+#     else:
+#         if chat_id == Settings.MODERATORS_CHAT_ID:
+#             stats = await db_service.user_counts()
+#             stat_message = f"""
+#         <b>Статистика пользователей</b>
+#         Сегодня {stats[0]} новых пользователей
+#         Всего {stats[1]} пользователей
+#             """
+#             await bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
 
 
 # Обработчики главного меню

@@ -4,6 +4,7 @@ from typing import Any, Optional
 from random import randrange
 
 from app.repositories.db_repo import DbRepo
+from app.services.redis_service import RedisService
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +41,15 @@ class DbService:
         rows = await self._repo.get_users_ids()
         return [row["id"] for row in rows]
 
-    async def change_user_count(self, reset=False):
+    async def change_user_count(self, redis_service: RedisService, reset=False):
         if reset:
-            self.user_count = 0
+            await redis_service.set_stats(user_count=0)
         else:
-            self.user_count += 1
+            await redis_service.set_stats(redis_service.get_stats + 1)
 
-    async def user_counts(self):
+    async def user_counts(self, redis_service: RedisService):
         total = await self._repo.user_count()
-        return [self.user_count, total]
+        return [redis_service.get_stats, total]
 
     async def get_categories_and_wishes(self, place: dict[Any, Any]) -> tuple[str, str]:
         name, address = place.get("name"), place.get("address")

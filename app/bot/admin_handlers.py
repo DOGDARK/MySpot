@@ -10,6 +10,7 @@ from apscheduler.triggers.date import DateTrigger
 from app.bot.admin_keyboards import get_main_keyboard, get_menu_keyboard
 from app.bot.utils import notify_users
 from app.services.db_service import DbService
+from app.services.redis_service import RedisService
 
 admin_router = Router()
 
@@ -69,9 +70,11 @@ async def create_notification_task(
     await message.answer("Рассылка добавлена")
 
 
-#@admin_router.callback_handler(F.data == "stats")
-# def stats(redis_service: Redis_service, db_service: DbService)
-#  daily_count= redis_service.get_stats()
-#  all_count = db_service.users_count
-# text = f"{daily_count}, "all_count"
-#await callback_answer(text)
+@admin_router.callback_query(F.data == "stats")
+async def stats(message: types.Message, db_service: DbService):
+    stats = db_service.user_counts()
+    daily_count, all_count = stats[0], stats[1]
+    text = f"""
+сегодня {daily_count} новых пользователей
+всего {all_count} пользователей"""
+    await message.answer(text)

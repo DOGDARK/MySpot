@@ -1,6 +1,10 @@
 import asyncio
 import logging
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pytz
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -71,7 +75,11 @@ async def main():
             misfire_grace_time=300,
         )
 
-        #scheduler.add (create_stats, args(db_service, redis_service, bot))
+        scheduler.add_job(
+            db_service.change_user_count(reset=True),
+            CronTrigger(hour=0, minute=0),
+            misfire_grace_time=300,
+        )
 
         scheduler.start()
         logger.info(f"Scheduler jobs: {scheduler.get_jobs()}")
