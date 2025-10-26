@@ -265,7 +265,7 @@ async def cmd_start(
         )
     else:
         # Создаем нового пользователя в памяти (но не в базе до выбора категорий)
-        await coordinator.save_user(user_id)
+        await coordinator.save_user(user_id, is_new = True)
         redis_service.set_user_data(
             user_id,
             {
@@ -872,7 +872,7 @@ async def handle_location(
             wishes=[],
             filters=[],
             latitude=latitude,
-            longitude=longitude,
+            longitude=longitude
         )
 
     # пересоздаем таблицу мест с новой геолокацией

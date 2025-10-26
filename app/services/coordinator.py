@@ -19,9 +19,11 @@ class Coordinator:
         filters: list = None,
         latitude: float = None,
         longitude: float = None,
+        is_new: bool = False,
     ) -> None:
         await self._db_service.save_user(user_id, categories, wishes, filters, latitude, longitude)
-        daily_count = self._redis_service.get_daily_count()
-        daily_count = daily_count + 1 if daily_count else 1
-        self._redis_service.set_daily_count(daily_count)
+        if is_new:
+            daily_count = self._redis_service.get_daily_count()
+            daily_count = daily_count + 1 if daily_count else 1
+            self._redis_service.set_daily_count(daily_count)
         logger.info(f"New user added {user_id=}, {daily_count=}")
