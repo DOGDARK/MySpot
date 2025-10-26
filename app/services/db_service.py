@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Any, Optional
+from random import randrange
 
 from app.repositories.db_repo import DbRepo
 
@@ -54,12 +55,11 @@ class DbService:
         return [self.user_count, total]
 
     async def get_categories_and_wishes(self, place: dict[Any, Any]) -> tuple[str, str]:
-        name, address = place.get("name"), place.get("adress")
+        name, address = place.get("name"), place.get("address")
         row = await self._repo.get_categories_and_wishes(name, address)
         categories_text = "Не указаны"
         wishes_text = "Не указаны"
         website = ""
-
         if row:
             if row["categories_1"]:
                 categories_text = row["categories_1"]
@@ -67,7 +67,6 @@ class DbService:
                 wishes_text = row["categories_2"]
             if row["website"]:
                 website = row["website"]
-
         return categories_text, wishes_text, website
 
     async def get_user(self, user_id: int) -> Optional[dict]:
@@ -303,7 +302,8 @@ class DbService:
                 added = False
                 for filt in user_filters:
                     if filt in places_by_filter and places_by_filter[filt]:
-                        balanced_top.append(places_by_filter[filt].pop(0))
+                        idx = randrange(min(3, len(places_by_filter[filt])))
+                        balanced_top.append(places_by_filter[filt].pop(idx))
                         added = True
                     if len(balanced_top) >= 400:
                         break

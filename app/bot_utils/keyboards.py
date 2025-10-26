@@ -132,9 +132,9 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="⬅️ Назад", callback_data="place_prev"),
                 InlineKeyboardButton(text="Вперёд ➡️", callback_data="place_next"),
             ],
-            [
-                InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu"),
+            [   
                 InlineKeyboardButton(text="❌ С местом что-то не так", callback_data="place_bad"),
+                InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu"),
             ],
         ]
     )

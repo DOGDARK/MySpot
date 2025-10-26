@@ -2,6 +2,10 @@ import asyncio
 import logging
 from math import atan2, cos, radians, sin, sqrt
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pytz
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.client.default import DefaultBotProperties
@@ -72,7 +76,7 @@ async def process_place_bad(callback_query: types.CallbackQuery):
     categories_text, wishes_text, website = await db_service.get_categories_and_wishes(place)
 
     # Формируем текст
-    place_text = generate_place_text(place, website, rating_text)
+    place_text = generate_place_text(place, website, rating_text, categories_text=categories_text, wishes_text=wishes_text)
 
     photo_url = place.get("photo")
 
@@ -280,7 +284,7 @@ async def show_place(user_id: int, chat_id: int, index: int):
     logger.info(len(places))
     place_text = generate_place_text(place, website, rating_text, distance_text)
 
-    # Получаем ссылку на фото и проверяем ее валидность
+    # Получаем ссылку на фото и проверяем ее валидностьz
     photo_url = place.get("photo")
 
     # Проверяем, является ли photo_url валидной ссылкой
@@ -327,6 +331,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                     photo=photo_url,
                     caption=text,
                     reply_markup=reply_markup,
+                    # parse_mode='HTML',
                 )
                 # Удаляем старое сообщение
                 try:
@@ -341,6 +346,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                         message_id=last_msg,
                         text=text,
                         reply_markup=reply_markup,
+                        # parse_mode='HTML',
                     )
                 except Exception as edit_error:
                     # Если не удалось отредактировать, отправляем новое сообщение
@@ -364,6 +370,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                         photo=photo_url,
                         caption=text,
                         reply_markup=reply_markup,
+                        # parse_mode='HTML',
                     )
                 else:
                     message = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
@@ -380,6 +387,7 @@ async def update_or_send_message(chat_id: int, text: str, reply_markup=None, pho
                     photo=photo_url,
                     caption=text,
                     reply_markup=reply_markup,
+                    # parse_mode='HTML',
                 )
             else:
                 message = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
@@ -760,9 +768,9 @@ async def process_filter_search(message: types.Message, state: FSMContext):
         filter_page = filter_index // 8
 
         success_text = f"""
-    ✅ <b>Фильтр добавлен</b>
+✅ <b>Фильтр добавлен</b>
 
-    Фильтр "{filter_name}" успешно добавлен к вашим настройкам.
+Фильтр "{filter_name}" успешно добавлен к вашим настройкам.
     """
 
         await update_or_send_message(
@@ -772,10 +780,10 @@ async def process_filter_search(message: types.Message, state: FSMContext):
         )
     else:
         error_text = f"""
-    ❌ <b>Фильтр не найден</b>
+❌ <b>Фильтр не найден</b>
 
-    Фильтр "{filter_name}" не существует. 
-    Пожалуйста, выберите фильтр из доступного списка.
+Фильтр "{filter_name}" не существует. 
+Пожалуйста, выберите фильтр из доступного списка.
     """
 
         await update_or_send_message(
@@ -805,11 +813,11 @@ async def confirm_filters(callback: types.CallbackQuery):
     await db_service.create_user_places_table(user_id)
 
     confirmation_text = f"""
-    ✅ <b>Фильтры сохранены!</b>
+✅ <b>Фильтры сохранены!</b>
 
-    <b>Выбрано фильтров:</b> {len(user_filters)}
+<b>Выбрано фильтров:</b> {len(user_filters)}
 
-    Теперь вы можете просматривать места, соответствующие вашим предпочтениям.
+Теперь вы можете просматривать места, соответствующие вашим предпочтениям.
     """
 
     try:
@@ -839,18 +847,18 @@ async def show_geolocation_main(callback: types.CallbackQuery):
     user = await db_service.get_user(user_id)
 
     geo_text = """
-    🗺️ <b>Поиск по геолокации</b>
+🗺️ <b>Поиск по геолокации</b>
 
-    Отправьте ваше местоположение, чтобы найти места рядом с вами.
+Отправьте ваше местоположение, чтобы найти места рядом с вами.
     """
 
     if user and user["latitude"] is not None and user["longitude"] is not None:
         geo_text += f"""
-    <b>Текущее местоположение сохранено</b>
-    📍 Широта: {user["latitude"]:.6f}
-    📍 Долгота: {user["longitude"]:.6f}
+<b>Текущее местоположение сохранено</b>
+📍 Широта: {user["latitude"]:.6f}
+📍 Долгота: {user["longitude"]:.6f}
 
-    Теперь вы можете смотреть места рядом с вами.
+Теперь вы можете смотреть места рядом с вами.
     """
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -862,9 +870,9 @@ async def show_geolocation_main(callback: types.CallbackQuery):
         )
     else:
         geo_text += """
-    ❌ <b>Местоположение не указано</b>
+❌ <b>Местоположение не указано</b>
 
-    Пожалуйста, отправьте ваше местоположение.
+Пожалуйста, отправьте ваше местоположение.
     """
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -1098,13 +1106,13 @@ async def confirm_wishes(callback: types.CallbackQuery):
     await db_service.create_user_places_table(user_id)
 
     confirmation_text = f"""
-    <b>Настройки сохранены!</b>
+<b>Настройки сохранены!</b>
 
-    <b>Выбрано категорий:</b> {categories_count}
-    <b>Выбрано пожеланий:</b> {wishes_count}
-    <b>Выбрано фильтры:</b> {len(user["filters"]) if user else 0}
+<b>Выбрано категорий:</b> {categories_count}
+<b>Выбрано пожеланий:</b> {wishes_count}
+<b>Выбрано фильтры:</b> {len(user["filters"]) if user else 0}
 
-    История просмотров сброшена. Теперь вы можете просматривать места, соответствующие вашим новым предпочтениям.
+История просмотров сброшена. Теперь вы можете просматривать места, соответствующие вашим новым предпочтениям.
         """
 
     try:
