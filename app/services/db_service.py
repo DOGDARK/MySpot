@@ -83,8 +83,8 @@ class DbService:
     async def save_user(
         self,
         user_id: int,
-        categories: list = set(),
-        wishes: list = set(),
+        categories: list = [],
+        wishes: list = [],
         filters: list = None,
         latitude: float = None,
         longitude: float = None,

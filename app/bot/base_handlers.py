@@ -100,7 +100,6 @@ async def reset_location(
     callback: types.CallbackQuery,
     db_service: DbService,
     redis_service: RedisService,
-    coordinator: Coordinator,
     bot: Bot,
 ):
     user_id = callback.from_user.id
@@ -108,7 +107,7 @@ async def reset_location(
 
     if user:
         # Сбрасываем геолокацию
-        await coordinator.save_user(
+        await db_service.save_user(
             user_id=user_id,
             categories=user["categories"],
             wishes=user["wishes"],
@@ -265,7 +264,7 @@ async def cmd_start(
         )
     else:
         # Создаем нового пользователя в памяти (но не в базе до выбора категорий)
-        await coordinator.save_user(user_id, is_new = True)
+        await coordinator.save_user(user_id)
         redis_service.set_user_data(
             user_id,
             {
@@ -847,7 +846,7 @@ async def request_location(callback: types.CallbackQuery, redis_service: RedisSe
 
 @base_router.message(F.content_type == "location")
 async def handle_location(
-    message: types.Message, db_service: DbService, redis_service: RedisService, coordinator: Coordinator, bot: Bot
+    message: types.Message, db_service: DbService, redis_service: RedisService, bot: Bot
 ):
     user_id = message.from_user.id
     latitude = message.location.latitude
@@ -856,7 +855,7 @@ async def handle_location(
     # Сохраняем геолокацию пользователя
     user = await db_service.get_user(user_id)
     if user:
-        await coordinator.save_user(
+        await db_service.save_user(
             user_id=user_id,
             categories=user["categories"],
             wishes=user["wishes"],
@@ -866,7 +865,7 @@ async def handle_location(
         )
     else:
         # Если пользователя нет в базе, создаем запись
-        await coordinator.save_user(
+        await db_service.save_user(
             user_id=user_id,
             categories=[],
             wishes=[],
@@ -1035,7 +1034,6 @@ async def confirm_wishes(
     callback: types.CallbackQuery,
     redis_service: RedisService,
     db_service: DbService,
-    coordinator: Coordinator,
     bot: Bot,
 ):
     user_id = callback.from_user.id
@@ -1057,10 +1055,10 @@ async def confirm_wishes(
     user = await db_service.get_user(user_id)
 
     # Сохраняем пользователя в базу данных с сохранением геопозиции
-    await coordinator.save_user(
+    await db_service.save_user(
         user_id=user_id,
-        categories=list(user_data["selected_categories"]),
-        wishes=list(user_data["selected_wishes"]),
+        categories=user_data["selected_categories"],
+        wishes=user_data["selected_wishes"],
         filters=user["filters"] if user else [],  # Сохраняем текущие фильтры
         latitude=user["latitude"] if user else None,  # Сохраняем геопозицию
         longitude=user["longitude"] if user else None,  # Сохраняем геопозицию
