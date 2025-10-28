@@ -107,7 +107,7 @@ async def reset_location(
 
     if user:
         # Сбрасываем геолокацию
-        await db_service.save_user(
+        await db_service.create_or_update_user(
             user_id=user_id,
             categories=user["categories"],
             wishes=user["wishes"],
@@ -246,10 +246,9 @@ async def reset_all_wishes(callback: types.CallbackQuery, redis_service: RedisSe
 async def cmd_start(
     message: types.Message, redis_service: RedisService, db_service: DbService, coordinator: Coordinator, bot: Bot
 ):
-    logger.info("cmd_start")
     user_id = message.from_user.id
     chat_id = message.chat.id
-    logger.info(f"User with {chat_id=} press start")
+    logger.info(f"User with {chat_id=} pressed start")
     # Загружаем данные пользователя из базы данных
     user_db_data = await db_service.get_user(user_id)
     if user_db_data:
@@ -263,7 +262,7 @@ async def cmd_start(
             },
         )
     else:
-        # Создаем нового пользователя в памяти (но не в базе до выбора категорий)
+        # Создаем нового пользователя
         await coordinator.save_user(user_id)
         redis_service.set_user_data(
             user_id,
@@ -295,33 +294,9 @@ async def help_cmd_handler(message: types.Message):
     await message.answer(text=MsgsText.HELP_TEXT.value, reply_markup=get_back_to_main_keyboard())
 
 
-# @base_router.message(Command("stats"))  # need fix
-# async def daily_report(db_service: DbService, bot: Bot, message: types.Message = None, by_timer=False):
-#     chat_id = message.chat.id
-#     if by_timer:
-#         stats = db_service.user_count
-#         stat_message = f"""
-#     <b>Статистика пользователей<b>
-#     Сегодня {stats[0]} новых пользователей
-#     Всего {stats[1]} пользователей
-#         """
-#         bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
-#         await db_service.change_user_count(reset=True)
-#     else:
-#         if chat_id == Settings.MODERATORS_CHAT_ID:
-#             stats = await db_service.user_counts()
-#             stat_message = f"""
-#         <b>Статистика пользователей</b>
-#         Сегодня {stats[0]} новых пользователей
-#         Всего {stats[1]} пользователей
-#             """
-#             await bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=stat_message, parse_mode="HTML")
-
-
 # Обработчики главного меню
 @base_router.callback_query(F.data == "view_places_main")
 async def show_places_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot):
-    logger.info("show_places_main")
     user_id = callback.from_user.id
     user = await db_service.get_user(user_id)
 
@@ -390,7 +365,6 @@ async def show_places_main(callback: types.CallbackQuery, db_service: DbService,
 async def view_nearby_places(
     callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
 ):
-    logger.info("view_nearby")
     user_id = callback.from_user.id
     redis_service.set_user_data_params(user_id, {"current_place_index": 0})
     redis_service.set_user_data_params(user_id, {"current_offset": 0})
@@ -431,7 +405,6 @@ async def view_nearby_places(
 async def view_recommended_places(
     callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
 ):
-    logger.info("view_recommended")
     user_id = callback.from_user.id
     redis_service.set_user_data_params(user_id, {"current_place_index": 0})
     redis_service.set_user_data_params(user_id, {"current_offset": 0})
@@ -845,9 +818,7 @@ async def request_location(callback: types.CallbackQuery, redis_service: RedisSe
 
 
 @base_router.message(F.content_type == "location")
-async def handle_location(
-    message: types.Message, db_service: DbService, redis_service: RedisService, bot: Bot
-):
+async def handle_location(message: types.Message, db_service: DbService, redis_service: RedisService, bot: Bot):
     user_id = message.from_user.id
     latitude = message.location.latitude
     longitude = message.location.longitude
@@ -855,7 +826,7 @@ async def handle_location(
     # Сохраняем геолокацию пользователя
     user = await db_service.get_user(user_id)
     if user:
-        await db_service.save_user(
+        await db_service.create_or_update_user(
             user_id=user_id,
             categories=user["categories"],
             wishes=user["wishes"],
@@ -865,13 +836,8 @@ async def handle_location(
         )
     else:
         # Если пользователя нет в базе, создаем запись
-        await db_service.save_user(
-            user_id=user_id,
-            categories=[],
-            wishes=[],
-            filters=[],
-            latitude=latitude,
-            longitude=longitude
+        await db_service.create_or_update_user(
+            user_id=user_id, categories=[], wishes=[], filters=[], latitude=latitude, longitude=longitude
         )
 
     # пересоздаем таблицу мест с новой геолокацией
@@ -1055,7 +1021,7 @@ async def confirm_wishes(
     user = await db_service.get_user(user_id)
 
     # Сохраняем пользователя в базу данных с сохранением геопозиции
-    await db_service.save_user(
+    await db_service.create_or_update_user(
         user_id=user_id,
         categories=user_data["selected_categories"],
         wishes=user_data["selected_wishes"],
@@ -1127,7 +1093,6 @@ async def back_to_main_menu(
 
 @base_router.callback_query(F.data.in_(["place_prev", "place_next"]))
 async def navigate_places(callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot):
-    logger.info("navigate")
     user_id = callback.from_user.id
     user_data = redis_service.get_user_data(user_id)
     current_index = user_data.get("current_place_index", 0)
@@ -1181,7 +1146,6 @@ async def navigate_places(callback: types.CallbackQuery, redis_service: RedisSer
 async def cancel_filter_search(
     callback: types.CallbackQuery, state: FSMContext, db_service: DbService, redis_service: RedisService, bot: Bot
 ):
-    logger.info("-----------")
     user_id = callback.from_user.id
     user_filters = await db_service.get_user_filters(user_id)
 

@@ -3,6 +3,7 @@ import logging
 from random import randrange
 from typing import Any, Optional
 
+from app.core.utils import async_log_decorator
 from app.repositories.db_repo import DbRepo
 
 logger = logging.getLogger(__name__)
@@ -58,8 +59,9 @@ class DbService:
                 website = row["website"]
         return categories_text, wishes_text, website
 
+    async_log_decorator(logger)
+
     async def get_user(self, user_id: int) -> Optional[dict]:
-        logger.info("get_user")
         try:
             user = await self._repo.get_user(user_id)
             if user:
@@ -80,7 +82,8 @@ class DbService:
             logger.error(f"Database error in get_user: {e}")
             return None
 
-    async def save_user(
+    @async_log_decorator(logger)
+    async def create_or_update_user(
         self,
         user_id: int,
         categories: list = [],
@@ -89,8 +92,6 @@ class DbService:
         latitude: float = None,
         longitude: float = None,
     ):
-        logger.info("save_user")
-
         # Храним фильтры как строку через запятую
         filters_str = ",".join(filters) if filters else ""
         categories_str = ",".join(categories) if categories else ""
@@ -182,8 +183,9 @@ class DbService:
             wishes = user["wishes"]
             latitude = user["latitude"]
             longitude = user["longitude"]
-            await self.save_user(user_id, categories, wishes, filters, latitude, longitude)
+            await self.create_or_update_user(user_id, categories, wishes, filters, latitude, longitude)
 
+    @async_log_decorator(logger)
     async def get_all_places(
         self,
         categories: set,
@@ -197,7 +199,6 @@ class DbService:
         сортирует их по приоритету и возвращает сбалансированный топ-400.
         При подсчёте очков учитывается только совпадение первого фильтра места с фильтрами пользователя.
         """
-        logger.info("get_all_places")
 
         if not categories and not wishes and not user_filters:
             return await self._repo.get_random_places()
@@ -298,13 +299,13 @@ class DbService:
         logger.info(f"[get_all_places] Отобрано топ-{len(balanced_top)} мест")
         return balanced_top
 
+    @async_log_decorator(logger)
     async def create_user_places_table(self, user_id: int, *_args, **_kwargs):
         """
         Пересоздаёт таблицу мест пользователя с актуальными данными,
         сохраняя историю просмотров для оставшихся мест.
         Таблица хранится в БД users, название таблицы = user_{user_id}.
         """
-        logger.info("create_user_places_table")
         try:
             # Проверяем, есть ли таблица
 
@@ -358,6 +359,7 @@ class DbService:
         except Exception as e:
             logger.error(f"[create_user_places_table] Ошибка: {e}")
 
+    @async_log_decorator(logger)
     async def get_places_for_user(
         self,
         user_id: int,
@@ -371,7 +373,6 @@ class DbService:
         sort_by_distance: если True, сортирует по расстоянию (если есть координаты пользователя).
         """
         # Получаем данные пользователя
-        logger.info(f"get_places_for_user {user_id=}")
 
         user = await self.get_user(user_id)
 
@@ -413,17 +414,18 @@ class DbService:
 
         return places
 
+    @async_log_decorator(logger)
     async def mark_place_as_viewed(self, user_id: int, place_name: str) -> None:
         """
         Помечает место как просмотренное по названию
         """
-        logger.info("mark_place_as_viewed")
 
         try:
             await self._repo.mark_place_as_viewed(user_id, place_name)
         except Exception as e:
             logger.error(f"Error marking place as viewed: {e}")
 
+    @async_log_decorator(logger)
     async def reset_viewed(self, user_id: int) -> None:
         try:
             # Проверяем существование таблицы
@@ -432,7 +434,6 @@ class DbService:
                 return
 
             await self._repo.reset_viewed(user_id)
-            logger.info(f"Reset viewed places for user {user_id}")
         except Exception as e:
             logger.error(f"Error resetting viewed places: {e}")
 

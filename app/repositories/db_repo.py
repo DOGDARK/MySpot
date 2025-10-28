@@ -52,7 +52,6 @@ class DbRepo:
                     total_activities INTEGER DEFAULT 1
                 )
                 """)
-        logger.info("Created tables")
 
     async def get_user_stats(self, user_id: int) -> asyncpg.Record:
         """
@@ -354,7 +353,6 @@ class DbRepo:
             )
 
     async def get_ordered_user_places_data(self, user_id: int) -> list[asyncpg.Record]:
-        logger.info(user_id)
         table_name = f"user_{int(user_id)}"
         async with self._pool.acquire() as conn:
             return await conn.fetch(
@@ -403,4 +401,4 @@ class DbRepo:
                 try:
                     await conn.execute(f"UPDATE {table_name} SET viewed = 0")
                 except Exception as e:
-                    logger.error(f"Ошибка при обновлении {table_name}: {e}")
+                    logger.error(f"Error while updating {table_name}: {e}")

@@ -26,7 +26,6 @@ async def update_or_send_message(
     chat_id: int, text: str, bot: Bot, redis_service: RedisService, reply_markup=None, photo_url: str = None
 ):
     """Обновить существующее сообщение или отправить новое"""
-    logger.info("update_or_send")
     last_msg = redis_service.get_user_msg(chat_id)
     if last_msg:
         try:
@@ -103,9 +102,7 @@ async def update_or_send_message(
 async def show_place(
     user_id: int, chat_id: int, index: int, bot: Bot, db_service: DbService, redis_service: redis_service
 ):
-    logger.info(f"show_place {user_id=}")
     places = redis_service.get_user_data(user_id).get("places", [])
-    logger.info(f"{len(places)=}")
 
     if not places or index >= len(places):
         return
@@ -149,7 +146,6 @@ async def show_place(
         except (ValueError, TypeError):
             # Если координаты некорректны, пропускаем
             pass
-    logger.info(len(places))
     place_text = generate_place_text(place, website, rating_text, distance_text)
 
     # Получаем ссылку на фото и проверяем ее валидность
