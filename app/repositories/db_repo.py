@@ -319,16 +319,30 @@ class DbRepo:
                 viewed,
             )
 
-    async def get_ordered_user_places_data(self, user_id: int) -> list[asyncpg.Record]:
+    async def get_user_places_data(self, user_id: int) -> list[asyncpg.Record]:
         async with self._pool.acquire() as conn:
             return await conn.fetch(
                 """
-                SELECT id, name, address, description, categories_ya as categories, 
-                photo, rating, latitude, longitude
-                FROM places
-                JOIN users_places as up ON (up.place_id = places.id) 
-                WHERE up.viewed = FALSE and up.user_id = $1
-                ORDER BY id ASC
+                WITH up AS (
+                SELECT
+                *,
+                ROW_NUMBER() OVER () AS rn
+                FROM users_places
+                WHERE user_id = $1 AND viewed = FALSE
+            )
+                SELECT
+                    p.id,
+                    p.name,
+                    p.address,
+                    p.description,
+                    p.categories_ya AS categories,
+                    p.photo,
+                    p.rating,
+                    p.latitude,
+                    p.longitude
+                FROM up
+                JOIN places AS p ON p.id = up.place_id
+                ORDER BY up.rn;
                 """,
                 user_id,
             )

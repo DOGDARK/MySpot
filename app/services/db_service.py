@@ -331,7 +331,7 @@ class DbService:
     async def get_places_for_user(
         self,
         user_id: int,
-        limit: int = 50,
+        limit: int = 400,
         offset: int = 0,
         sort_by_distance: bool = False,
     ) -> list[dict[Any, Any]]:
@@ -350,7 +350,7 @@ class DbService:
         if not await self._repo.user_places_relations_exists(user_id):
             await self.create_user_places_relation(user_id)
 
-        rows = await self._repo.get_ordered_user_places_data(user_id)
+        rows = await self._repo.get_user_places_data(user_id)
 
         places = [
             {
