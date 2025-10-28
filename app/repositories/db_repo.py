@@ -54,7 +54,7 @@ class DbRepo:
 
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS users_places (
-                    user_id INTEGER,
+                    user_id BIGINT,
                     place_id INTEGER,   
                     PRIMARY KEY (user_id, place_id),
                     FOREIGN KEY (user_id) REFERENCES users(id),
