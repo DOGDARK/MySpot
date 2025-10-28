@@ -355,15 +355,15 @@ class DbService:
 
         places = [
             {
-                "id": row[0],
-                "name": row[1],
-                "address": row[2],
-                "description": row[3],
-                "categories": row[4],
-                "photo": row[5],
-                "rating": row[6],
-                "latitude": row[7],
-                "longitude": row[8],
+                "id": row["id"],
+                "name": row["name"],
+                "address": row["address"],
+                "description": row["description"],
+                "categories": row["categories"],
+                "photo": row["photo"],
+                "rating": row["rating"],
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
             }
             for row in rows
         ]

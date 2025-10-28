@@ -36,7 +36,7 @@ class DbRepo:
                     wishes TEXT,
                     filters TEXT,
                     latitude DOUBLE PRECISION,
-                    longitude DOUBLE PRECISION,
+                    longitude DOUBLE PRECISION
                 )
                 """)
 
@@ -150,7 +150,7 @@ class DbRepo:
                 wishes, 
                 filters, 
                 latitude, 
-                longitude, 
+                longitude
                 )
                 VALUES ($1, $2, $3, $4, $5, $6)
                 """,
@@ -257,7 +257,7 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             return await conn.fetch(
                 """
-                SELECT name, address, description, categories_ya As categories, categories_1, 
+                SELECT name, address, description, categories_ya as categories, categories_1, 
                     categories_2, photo, rating, latitude, longitude
                 FROM places
                 ORDER BY RANDOM()
@@ -317,7 +317,7 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             return await conn.fetch(
                 """
-                SELECT id, name, address, description, categories, 
+                SELECT id, name, address, description,
                 photo, rating, latitude, longitude
                 FROM places
                 JOIN users_places as up ON (up.place_id = places.id) 
