@@ -70,7 +70,7 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             try:
                 return await conn.fetchrow(
-                """
+                    """
                 SELECT activity_date, viewed_places_count, has_geolocation, 
                 last_buttons, total_activities
                 FROM logs WHERE user_id = $1
@@ -121,7 +121,7 @@ class DbRepo:
                 wishes = $2, 
                 filters = $3, 
                 latitude = $4, 
-                longitude = $5, 
+                longitude = $5 
                 WHERE id = $6
                 """,
                 categories_str,
@@ -181,6 +181,11 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow("SELECT user_id FROM logs WHERE user_id = $1", user_id)
             return True if row else False
+
+    async def user_places_relations_exists(self, user_id: int) -> None:
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM users_places WHERE user_id = $1", user_id)
+            return rows != []
 
     async def get_last_buttons(self, user_id: int) -> asyncpg.Record:
         async with self._pool.acquire() as conn:
@@ -257,7 +262,7 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             return await conn.fetch(
                 """
-                SELECT name, address, description, categories_ya as categories, categories_1, 
+                SELECT id, name, address, description, categories_ya as categories, categories_1, 
                     categories_2, photo, rating, latitude, longitude
                 FROM places
                 ORDER BY RANDOM()
@@ -267,13 +272,14 @@ class DbRepo:
 
     async def get_places_data(self) -> list[asyncpg.Record]:
         async with self._pool.acquire() as conn:
-            return await conn.fetch(
+            res = await conn.fetch(
                 """
                 SELECT id, name, address, description, categories_ya, categories_1, 
                 categories_2, photo, rating, latitude, longitude
                 FROM places
                 """
             )
+            return res
 
     async def get_current_viewed_state_and_del(self, user_id: int) -> dict[Any, Any]:
         async with self._pool.acquire() as conn:

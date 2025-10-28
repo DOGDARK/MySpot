@@ -64,6 +64,7 @@ async def main():
         dp["coordinator"] = coordinator
 
         commands = [
+            BotCommand(command="start", description="Перезапуск бота"),
             BotCommand(command="help", description="Помощь"),
             BotCommand(command="admin", description="Панель администратора"),
         ]

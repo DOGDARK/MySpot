@@ -59,8 +59,7 @@ class DbService:
                 website = row["website"]
         return categories_text, wishes_text, website
 
-    async_log_decorator(logger)
-
+    @async_log_decorator(logger)
     async def get_user(self, user_id: int) -> Optional[dict]:
         try:
             user = await self._repo.get_user(user_id)
@@ -179,7 +178,6 @@ class DbService:
             longitude = user["longitude"]
             await self.create_or_update_user(user_id, categories, wishes, filters, latitude, longitude)
 
-    @async_log_decorator(logger)
     async def get_all_places(
         self,
         categories: set,
@@ -223,6 +221,7 @@ class DbService:
             scored_places.append(
                 {
                     "id": place["id"],
+                    "name": place["name"],
                     "total_score": total_score,
                     "first_filter": first_filter,
                     "all_filters": place_categories_ya,
@@ -313,7 +312,7 @@ class DbService:
 
             # Записываем в БД
             for place in final_places:
-                viewed = current_viewed_state.get(place["name"], 0)
+                viewed = current_viewed_state.get(place["name"], False)
                 try:
                     await self._repo.save_user_places_relation(
                         user_id,
@@ -329,7 +328,6 @@ class DbService:
         except Exception as e:
             logger.error(f"[create_user_places_table] Ошибка: {e}")
 
-    @async_log_decorator(logger)
     async def get_places_for_user(
         self,
         user_id: int,
@@ -349,6 +347,8 @@ class DbService:
         user_lat = user["latitude"] if user else None
         user_lon = user["longitude"] if user else None
 
+        if not await self._repo.user_places_relations_exists(user_id):
+            await self.create_user_places_relation(user_id)
 
         rows = await self._repo.get_ordered_user_places_data(user_id)
 
@@ -384,7 +384,6 @@ class DbService:
         """
         Помечает место как просмотренное по названию
         """
-
         try:
             await self._repo.mark_place_as_viewed(user_id, place_name)
         except Exception as e:
