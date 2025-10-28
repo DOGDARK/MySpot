@@ -117,7 +117,7 @@ async def reset_location(
         )
 
     # ПОЛНОСТЬЮ пересоздаем таблицу мест (так как изменилась геолокация)
-    await db_service.create_user_places_table(user_id)
+    await db_service.create_user_places_relation(user_id)
 
     try:
         await callback.message.edit_text(text=MsgsText.RESET_GEO.value, reply_markup=get_reset_geolocation_keyboard())
@@ -698,7 +698,7 @@ async def confirm_filters(callback: types.CallbackQuery, db_service: DbService, 
         redis_service=redis_service,
     )
 
-    await db_service.create_user_places_table(user_id)
+    await db_service.create_user_places_relation(user_id)
 
     confirmation_text = f"""
 ✅ <b>Фильтры сохранены!</b>
@@ -841,7 +841,7 @@ async def handle_location(message: types.Message, db_service: DbService, redis_s
         )
 
     # пересоздаем таблицу мест с новой геолокацией
-    await db_service.create_user_places_table(user_id)
+    await db_service.create_user_places_relation(user_id)
 
     # Отправляем подтверждение
 
@@ -1030,7 +1030,7 @@ async def confirm_wishes(
         longitude=user["longitude"] if user else None,  # Сохраняем геопозицию
     )
 
-    await db_service.create_user_places_table(user_id)
+    await db_service.create_user_places_relation(user_id)
 
     confirmation_text = f"""
 <b>Настройки сохранены!</b>

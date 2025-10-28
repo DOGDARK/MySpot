@@ -37,7 +37,6 @@ class DbRepo:
                     filters TEXT,
                     latitude DOUBLE PRECISION,
                     longitude DOUBLE PRECISION,
-                    date_of_last_activity TIMESTAMP
                 )
                 """)
 
@@ -51,6 +50,17 @@ class DbRepo:
                     last_buttons TEXT,
                     total_activities INTEGER DEFAULT 1
                 )
+                """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS users_places (
+                    user_id INTEGER,
+                    place_id INTEGER,   
+                    PRIMARY KEY (user_id, place_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (place_id) REFERENCES places(id),
+                    viewed BOOLEAN DEFAULT FALSE
+                );
                 """)
 
     async def get_user_stats(self, user_id: int) -> asyncpg.Record:
@@ -112,15 +122,13 @@ class DbRepo:
                 filters = $3, 
                 latitude = $4, 
                 longitude = $5, 
-                date_of_last_activity = $6
-                WHERE id = $7
+                WHERE id = $6
                 """,
                 categories_str,
                 wishes_str,
                 filters_str,
                 latitude,
                 longitude,
-                datetime.now(),
                 user_id,
             )
 
@@ -143,9 +151,8 @@ class DbRepo:
                 filters, 
                 latitude, 
                 longitude, 
-                date_of_last_activity
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 """,
                 user_id,
                 categories_str,
@@ -153,17 +160,19 @@ class DbRepo:
                 filters_str,
                 latitude,
                 longitude,
-                datetime.now(),
             )
 
     async def get_viewed_places_count(self, user_id: int) -> int:
         try:
-            if not await self.user_places_table_exists(user_id):
-                return 0
             async with self._pool.acquire() as conn:
-                return await conn.fetchval(f"""
-                    SELECT COUNT(*) FROM user_{user_id} WHERE viewed = 1
-                    """)
+                return await conn.fetchval(
+                    """
+                    SELECT COUNT(*) 
+                    FROM users_places  
+                    WHERE viewed = TRUE AND user_id = $1
+                    """,
+                    user_id,
+                )
         except Exception as e:
             logger.error(f"Error while getting views places count {e}")
             return 0
@@ -172,19 +181,6 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow("SELECT user_id FROM logs WHERE user_id = $1", user_id)
             return True if row else False
-
-    async def user_places_table_exists(self, user_id: int) -> bool:
-        async with self._pool.acquire() as conn:
-            table_name = f"user_{int(user_id)}"
-            row = await conn.fetchrow(
-                """
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = $1
-                """,
-                table_name,
-            )
-            return row is not None
 
     async def get_last_buttons(self, user_id: int) -> asyncpg.Record:
         async with self._pool.acquire() as conn:
@@ -257,24 +253,12 @@ class DbRepo:
                 ),
             )
 
-    async def update_user_last_activity(self, user_id: int) -> None:
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                """
-                UPDATE users 
-                SET date_of_last_activity = $1
-                WHERE id = $2
-                """,
-                datetime.now(),
-                user_id,
-            )
-
     async def get_random_places(self) -> list[asyncpg.Record]:
         async with self._pool.acquire() as conn:
             return await conn.fetch(
                 """
-                SELECT name, address, description, categories_ya As categories, categories_1, categories_2,
-                    photo, rating, latitude, longitude
+                SELECT name, address, description, categories_ya As categories, categories_1, 
+                    categories_2, photo, rating, latitude, longitude
                 FROM places
                 ORDER BY RANDOM()
                 LIMIT 400
@@ -285,120 +269,93 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             return await conn.fetch(
                 """
-                SELECT name, address, description, categories_ya, categories_1, 
+                SELECT id, name, address, description, categories_ya, categories_1, 
                 categories_2, photo, rating, latitude, longitude
                 FROM places
                 """
             )
 
-    async def get_current_viewed_state_and_drop(self, user_id: int) -> dict[Any, Any]:
+    async def get_current_viewed_state_and_del(self, user_id: int) -> dict[Any, Any]:
         async with self._pool.acquire() as conn:
-            table_name = f"user_{int(user_id)}"
-            rows = await conn.fetch(f"SELECT name, viewed FROM {table_name}")
+            rows = await conn.fetch(
+                """
+                SELECT places.name, up.viewed
+                FROM users_places AS up
+                LEFT JOIN places ON up.place_id = places.id
+                WHERE up.user_id = $1
+                """,
+                user_id,
+            )
             current_viewed_state = {row[0]: row[1] for row in rows}
-            await conn.execute(f"DROP TABLE {table_name}")
+            await conn.execute(
+                """
+                DELETE FROM users_places
+                WHERE user_id = $1
+                """,
+                user_id,
+            )
             return current_viewed_state
 
-    async def create_user_places_table(self, user_id: int) -> None:
-        async with self._pool.acquire() as conn:
-            table_name = f"user_{int(user_id)}"
-            await conn.execute(
-                f"""
-                CREATE TABLE {table_name} (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT,
-                    address TEXT,
-                    description TEXT,
-                    categories TEXT,
-                    photo TEXT,
-                    rating TEXT,
-                    latitude DOUBLE PRECISION,
-                    longitude DOUBLE PRECISION,
-                    viewed INTEGER DEFAULT 0
-                    )
-                """
-            )
-
-    async def save_user_places_data(
+    async def save_user_places_relation(
         self,
         user_id: int,
-        name: str,
-        address: str,
-        description: str,
-        categories: str,
-        photo: str,
-        rating: float,
-        latitude: float,
-        longitude: float,
+        place_id: int,
         viewed: int,
     ):
         async with self._pool.acquire() as conn:
-            table_name = f"user_{int(user_id)}"
             await conn.execute(
-                f"""
-                INSERT INTO {table_name}
-                (name, address, description, categories, photo, 
-                rating, latitude, longitude, viewed)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                """
+                INSERT INTO users_places(user_id, place_id, viewed)
+                VALUES ($1, $2, $3)
                 """,
-                name,
-                address,
-                description,
-                categories,
-                photo,
-                rating,
-                latitude,
-                longitude,
+                user_id,
+                place_id,
                 viewed,
             )
 
     async def get_ordered_user_places_data(self, user_id: int) -> list[asyncpg.Record]:
-        table_name = f"user_{int(user_id)}"
         async with self._pool.acquire() as conn:
             return await conn.fetch(
-                f"""
+                """
                 SELECT id, name, address, description, categories, 
                 photo, rating, latitude, longitude
-                FROM {table_name} 
-                WHERE viewed = 0
+                FROM places
+                JOIN users_places as up ON (up.place_id = places.id) 
+                WHERE up.viewed = FALSE and up.user_id = $1
                 ORDER BY id ASC
-                """
+                """,
+                user_id,
             )
 
     async def mark_place_as_viewed(self, user_id: int, place_name: str) -> None:
-        table_name = f"user_{int(user_id)}"
         async with self._pool.acquire() as conn:
             await conn.execute(
-                f"""
-                UPDATE {table_name} 
-                SET viewed = 1 
-                WHERE name = $1
+                """
+                UPDATE users_places AS up
+                SET viewed = TRUE
+                FROM places
+                WHERE up.place_id = places.id
+                AND places.name = $1
+                AND up.user_id = $2
                 """,
                 place_name,
+                user_id,
             )
 
     async def reset_viewed(self, user_id: int) -> None:
-        table_name = f"user_{int(user_id)}"
         async with self._pool.acquire() as conn:
             await conn.execute(
-                f"""
-            UPDATE {table_name} 
-            SET viewed = 0 
-            WHERE viewed = 1
-            """
+                """
+                UPDATE users_places 
+                SET viewed = FALSE 
+                WHERE user_id = $1
+                """,
+                user_id,
             )
 
     async def reset_viewed_by_timer(self) -> None:
         """
-        Сбрасывает значение столбца viewed до 0 во всех таблицах user_{user_id}.
+        Меняет значение столбца viewed на False во всех связях пользователей с местами.
         """
         async with self._pool.acquire() as conn:
-            # Получаем всех пользователей
-            rows = await conn.fetch("SELECT id FROM users")
-            # Для каждого пользователя обновляем viewed
-            for row in rows:
-                table_name = f"user_{int(row['id'])}"
-                try:
-                    await conn.execute(f"UPDATE {table_name} SET viewed = 0")
-                except Exception as e:
-                    logger.error(f"Error while updating {table_name}: {e}")
+            await conn.execute("UPDATE users_places SET viewed = FALSE")

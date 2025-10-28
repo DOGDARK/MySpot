@@ -75,7 +75,6 @@ class DbService:
                     "filters": filters,
                     "latitude": user[4],
                     "longitude": user[5],
-                    "date_of_last_activity": user[6],
                 }
             return None
         except Exception as e:
@@ -164,11 +163,6 @@ class DbService:
                     json.dumps(last_buttons),
                 )
 
-            existing_user = await self._repo.get_user(user_id)
-
-            if existing_user:
-                await self._repo.update_user_last_activity(user_id)
-
         except Exception as e:
             logger.error(f"Error updating user activity: {e}")
 
@@ -228,14 +222,7 @@ class DbService:
 
             scored_places.append(
                 {
-                    "name": place["name"],
-                    "address": place["address"],
-                    "description": place["description"],
-                    "categories": place["categories_ya"],
-                    "photo": place["photo"],
-                    "rating": place["rating"],
-                    "latitude": place["latitude"],
-                    "longitude": place["longitude"],
+                    "id": place["id"],
                     "total_score": total_score,
                     "first_filter": first_filter,
                     "all_filters": place_categories_ya,
@@ -300,21 +287,14 @@ class DbService:
         return balanced_top
 
     @async_log_decorator(logger)
-    async def create_user_places_table(self, user_id: int, *_args, **_kwargs):
+    async def create_user_places_relation(self, user_id: int, *_args, **_kwargs):
         """
-        Пересоздаёт таблицу мест пользователя с актуальными данными,
+        Пересоздаёт связь мест пользователя с актуальными данными,
         сохраняя историю просмотров для оставшихся мест.
-        Таблица хранится в БД users, название таблицы = user_{user_id}.
         """
         try:
-            # Проверяем, есть ли таблица
-
-            table_exists = await self._repo.user_places_table_exists(user_id)
             # Сохраняем текущую историю просмотров
-            if table_exists:
-                current_viewed_state = await self._repo.get_current_viewed_state_and_drop(user_id)
-            else:
-                current_viewed_state = {}
+            current_viewed_state = await self._repo.get_current_viewed_state_and_del(user_id)
 
             # Получаем настройки пользователя
             user = await self.get_user(user_id)
@@ -331,23 +311,13 @@ class DbService:
             )
             logger.info(f"[create_user_places_table] Пользователь {user_id}: финально {len(final_places)} мест")
 
-            # Создаём таблицу заново — добавлены latitude и longitude
-            await self._repo.create_user_places_table(user_id)
-
             # Записываем в БД
             for place in final_places:
                 viewed = current_viewed_state.get(place["name"], 0)
                 try:
-                    await self._repo.save_user_places_data(
+                    await self._repo.save_user_places_relation(
                         user_id,
-                        place["name"],
-                        place["address"],
-                        place["description"],
-                        place["categories"],
-                        place["photo"],
-                        place["rating"],
-                        place["latitude"],
-                        place["longitude"],
+                        place["id"],
                         viewed,
                     )
                 except Exception as e:
@@ -380,10 +350,6 @@ class DbService:
         user_lon = user["longitude"] if user else None
 
         # Проверяем существование таблицы пользователя
-
-        table_exists = await self._repo.user_places_table_exists(user_id)
-        if not table_exists:
-            await self.create_user_places_table(user_id)
 
         rows = await self._repo.get_ordered_user_places_data(user_id)
 
@@ -428,11 +394,6 @@ class DbService:
     @async_log_decorator(logger)
     async def reset_viewed(self, user_id: int) -> None:
         try:
-            # Проверяем существование таблицы
-            table_exists = await self._repo.user_places_table_exists(user_id)
-            if not table_exists:
-                return
-
             await self._repo.reset_viewed(user_id)
         except Exception as e:
             logger.error(f"Error resetting viewed places: {e}")
