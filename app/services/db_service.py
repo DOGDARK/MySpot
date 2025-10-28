@@ -338,8 +338,8 @@ class DbService:
         sort_by_distance: bool = False,
     ) -> list[dict[Any, Any]]:
         """
-        Возвращает места для пользователя из его таблицы user_{user_id}.
-        Если таблицы нет — создаёт её и наполняет местами.
+        Возвращает места для пользователя из его связи с местами.
+        Если таблицы нет связей — наполняет таблицу.
         sort_by_distance: если True, сортирует по расстоянию (если есть координаты пользователя).
         """
         # Получаем данные пользователя
@@ -349,7 +349,6 @@ class DbService:
         user_lat = user["latitude"] if user else None
         user_lon = user["longitude"] if user else None
 
-        # Проверяем существование таблицы пользователя
 
         rows = await self._repo.get_ordered_user_places_data(user_id)
 

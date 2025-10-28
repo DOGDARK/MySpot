@@ -70,7 +70,7 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             try:
                 return await conn.fetchrow(
-                    """
+                """
                 SELECT activity_date, viewed_places_count, has_geolocation, 
                 last_buttons, total_activities
                 FROM logs WHERE user_id = $1
@@ -317,7 +317,7 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             return await conn.fetch(
                 """
-                SELECT id, name, address, description,
+                SELECT id, name, address, description, categories_ya as categories, 
                 photo, rating, latitude, longitude
                 FROM places
                 JOIN users_places as up ON (up.place_id = places.id) 

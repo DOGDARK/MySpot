@@ -33,5 +33,4 @@ services:
 
 networks:
   service_network:
-
     driver: bridge
