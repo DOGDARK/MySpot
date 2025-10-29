@@ -396,7 +396,7 @@ class DbService:
         except Exception as e:
             logger.error(f"Error resetting viewed places: {e}")
 
-    async def reset_viewed_by_timer(self) -> None:
+    async def reset_viewed_by_timer(self) -> None:  # не используется
         """
         Сбрасывает значение столбца viewed до 0 во всех таблицах user_{user_id}.
         """

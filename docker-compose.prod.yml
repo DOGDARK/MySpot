@@ -20,6 +20,10 @@ services:
       - '6379:6379'
     networks:
       - service_network
+    volumes:
+      - ${PWD}/volumes/redis_data:/data          
+      - ${PWD}/volumes/redis.conf:/usr/local/etc/redis/redis.conf  
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
   
   app:
     image: my_spot:latest

@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:latest
+    image: postgres:18
     env_file: '.env'
     ports:
       - '5432:5432'
@@ -32,6 +32,10 @@ services:
       - '6379:6379'
     networks:
       - service_network
+    volumes:
+      - ${PWD}/volumes/redis_data:/data          
+      - ${PWD}/volumes/redis.conf:/usr/local/etc/redis/redis.conf  
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
 
 networks:
   service_network:

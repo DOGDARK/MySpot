@@ -1,8 +1,9 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import asyncpg
+import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class DbRepo:
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
                     user_id INTEGER PRIMARY KEY REFERENCES users(id),
-                    activity_date TIMESTAMP,
+                    activity_date TIMESTAMPTZ,
                     viewed_places_count INTEGER DEFAULT 0,
                     has_geolocation BOOLEAN DEFAULT FALSE,
                     last_buttons TEXT,
@@ -59,7 +60,8 @@ class DbRepo:
                     PRIMARY KEY (user_id, place_id),
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (place_id) REFERENCES places(id),
-                    viewed BOOLEAN DEFAULT FALSE
+                    viewed BOOLEAN DEFAULT FALSE,
+                    reset_viewed_time TIMESTAMPTZ 
                 );
                 """)
 
@@ -213,7 +215,7 @@ class DbRepo:
                     total_activities = $5
                 WHERE user_id = $6
                 """,
-                datetime.now(),
+                datetime.now(pytz.utc),
                 viewed_places_count,
                 has_geolocation,
                 last_buttons,
@@ -251,7 +253,7 @@ class DbRepo:
                 VALUES ($1, $2, $3, $4, $5, 1)
                 """,
                     user_id,
-                    datetime.now(),
+                    datetime.now(pytz.utc),
                     viewed_places_count,
                     has_geolocation,
                     last_buttons,
@@ -293,10 +295,19 @@ class DbRepo:
                 user_id,
             )
             current_viewed_state = {row[0]: row[1] for row in rows}
+
+            await conn.execute(
+                """
+                UPDATE users_places 
+                SET viewed = FALSE 
+                WHERE user_id = $1 AND CURRENT_TIMESTAMP >= reset_viewed_time 
+                """,
+                user_id,
+            )
             await conn.execute(
                 """
                 DELETE FROM users_places
-                WHERE user_id = $1
+                WHERE user_id = $1 AND viewed = FALSE
                 """,
                 user_id,
             )
@@ -309,14 +320,16 @@ class DbRepo:
         viewed: int,
     ):
         async with self._pool.acquire() as conn:
+            reset_viewed_time = datetime.now(pytz.utc) + timedelta(weeks=1)
             await conn.execute(
                 """
-                INSERT INTO users_places(user_id, place_id, viewed)
-                VALUES ($1, $2, $3)
+                INSERT INTO users_places(user_id, place_id, viewed, reset_viewed_time)
+                VALUES ($1, $2, $3, $4)
                 """,
                 user_id,
                 place_id,
                 viewed,
+                reset_viewed_time,
             )
 
     async def get_user_places_data(self, user_id: int) -> list[asyncpg.Record]:
@@ -373,7 +386,7 @@ class DbRepo:
                 user_id,
             )
 
-    async def reset_viewed_by_timer(self) -> None:
+    async def reset_viewed_by_timer(self) -> None:  # не используется
         """
         Меняет значение столбца viewed на False во всех связях пользователей с местами.
         """

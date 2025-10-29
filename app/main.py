@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 import pytz
 from aiogram import Bot, Dispatcher
@@ -37,6 +38,7 @@ coordinator = Coordinator(db_service, redis_service)
 
 
 async def main():
+    logging.Formatter.converter = time.localtime
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -66,15 +68,8 @@ async def main():
         commands = [
             BotCommand(command="start", description="Перезапуск бота"),
             BotCommand(command="help", description="Помощь"),
-            BotCommand(command="admin", description="Панель администратора"),
         ]
         await bot.set_my_commands(commands)
-
-        scheduler.add_job(
-            db_service.reset_viewed_by_timer,
-            CronTrigger(hour=4, minute=0),
-            misfire_grace_time=300,
-        )
 
         scheduler.add_job(
             redis_service.set_daily_count,
