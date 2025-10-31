@@ -162,5 +162,4 @@ cython_debug/
 tmp
 volumes
 .ruff_cache
-data
 restart_myspot.sh 
