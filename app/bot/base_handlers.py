@@ -31,7 +31,6 @@ base_router = Router()
 
 
 MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
-START_IMG_PATH = "app/data/images/start_img.jpg"
 
 
 # Состояния FSM
@@ -273,7 +272,7 @@ async def cmd_start(
             },
         )
 
-    photo = FSInputFile(START_IMG_PATH)
+    photo = FSInputFile(Constants.START_IMG_PATH.value)
 
     # Сначала отправляем приветственное сообщение
     await update_or_send_message(
@@ -1073,7 +1072,7 @@ async def confirm_wishes(
 async def back_to_main_menu(
     callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
 ):
-    photo = FSInputFile(START_IMG_PATH)
+    photo = FSInputFile(Constants.START_IMG_PATH.value)
 
     chat_id = callback.message.chat.id
 

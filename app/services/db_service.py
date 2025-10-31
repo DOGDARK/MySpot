@@ -3,6 +3,8 @@ import logging
 from random import randrange
 from typing import Any, Optional
 
+import pytz
+
 from app.core.utils import async_log_decorator
 from app.repositories.db_repo import DbRepo
 
@@ -390,7 +392,7 @@ class DbService:
             logger.error(f"Error marking place as viewed: {e}")
 
     @async_log_decorator(logger)
-    async def reset_viewed(self, user_id: int) -> None:
+    async def reset_viewed(self, user_id: int) -> None:  # Не используется
         try:
             await self._repo.reset_viewed(user_id)
         except Exception as e:
@@ -450,3 +452,17 @@ class DbService:
 
         # Возвращаем только места, без расстояния
         return [place for place, distance in places_with_distance]
+
+    async def show_active_today_users(self) -> str:
+        rows = await self._repo.get_active_today_users()
+        if not rows:
+            return "Сегодня не было активных пользователей 😒"
+        res = ""
+        for i, r in enumerate(rows):
+            activity_date = r["activity_date"]
+            activity_date = activity_date.astimezone(pytz.timezone("Europe/Moscow"))
+            activity_date = activity_date.replace(microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+            res += f"- Пользователь с id {r['user_id']} был активен {activity_date} по Москве"
+            if i != len(rows) - 1:
+                res += "\n"
+        return res

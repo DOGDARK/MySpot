@@ -375,7 +375,7 @@ class DbRepo:
                 user_id,
             )
 
-    async def reset_viewed(self, user_id: int) -> None:
+    async def reset_viewed(self, user_id: int) -> None:  # Не используется
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """
@@ -392,3 +392,15 @@ class DbRepo:
         """
         async with self._pool.acquire() as conn:
             await conn.execute("UPDATE users_places SET viewed = FALSE")
+
+    async def get_active_today_users(self) -> list[asyncpg.Record]:
+        async with self._pool.acquire() as conn:
+            return await conn.fetch(
+                """
+                SELECT user_id, activity_date
+                FROM logs
+                WHERE activity_date >= CURRENT_DATE
+                AND activity_date < CURRENT_DATE + INTERVAL '1 day' 
+                ORDER BY activity_date ASC           
+                """
+            )
