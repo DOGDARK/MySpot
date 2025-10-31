@@ -61,7 +61,7 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="📍 Просмотр мест", callback_data="view_places_main"),
+                InlineKeyboardButton(text="✨ Просмотр мест", callback_data="view_places_main"),
                 InlineKeyboardButton(text="📂 Категории", callback_data="show_categories_main"),
             ],
             [
@@ -190,7 +190,7 @@ def get_back_to_filters_keyboard() -> InlineKeyboardMarkup:
 def get_view_places_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📍 Смотреть места", callback_data="view_places_main")],
+            [InlineKeyboardButton(text="✨ Смотреть места", callback_data="view_places_main")],
             [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
         ]
     )

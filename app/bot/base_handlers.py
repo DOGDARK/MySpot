@@ -750,14 +750,14 @@ async def show_geolocation_main(
     if user and user["latitude"] is not None and user["longitude"] is not None:
         geo_text += f"""
 <b>Текущее местоположение сохранено</b>
-📍 Широта: {user["latitude"]:.6f}
-📍 Долгота: {user["longitude"]:.6f}
+✨ Широта: {user["latitude"]:.6f}
+✨ Долгота: {user["longitude"]:.6f}
 
 Теперь вы можете смотреть места рядом с вами.
     """
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📍 Смотреть места рядом", callback_data="view_places_main")],
+                [InlineKeyboardButton(text="✨ Смотреть места рядом", callback_data="view_places_main")],
                 [InlineKeyboardButton(text="🗺️ Обновить геолокацию", callback_data="request_location")],
                 [InlineKeyboardButton(text="❌ Сбросить геолокацию", callback_data="reset_location")],
                 [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
@@ -851,7 +851,7 @@ async def handle_location(message: types.Message, db_service: DbService, redis_s
         redis_service=redis_service,
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📍 Смотреть места рядом", callback_data="view_places_main")],
+                [InlineKeyboardButton(text="✨ Смотреть места рядом", callback_data="view_places_main")],
                 [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
             ]
         ),
