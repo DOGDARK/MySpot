@@ -222,7 +222,10 @@ async def notify_users(
 ) -> None:
     pass
     for user_id in users_ids:
-        if photo_id:
-            await bot.send_photo(chat_id=user_id, photo=photo_id, caption=msg_text, reply_markup=reply_markup)
-        else:
-            await bot.send_message(chat_id=user_id, text=msg_text, reply_markup=reply_markup)
+        try:
+            if photo_id:
+                await bot.send_photo(chat_id=user_id, photo=photo_id, caption=msg_text, reply_markup=reply_markup)
+            else:
+                await bot.send_message(chat_id=user_id, text=msg_text, reply_markup=reply_markup)
+        except Exception as e:
+            logger.error(f"Error sending notification: {e}")
