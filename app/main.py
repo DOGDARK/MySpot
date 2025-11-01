@@ -32,7 +32,7 @@ db_repo = DbRepo()
 db_service = DbService(db_repo)
 
 redis_repo = RedisRepo(
-    Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, password=Settings.REDIS_PASSWORD, code_responses=True)
+    Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, password=Settings.REDIS_PASSWORD, decode_responses=True)
 )
 redis_service = RedisService(redis_repo)
 
