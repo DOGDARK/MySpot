@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime
 
@@ -12,6 +13,7 @@ from app.bot.utils import notify_users
 from app.services.db_service import DbService
 from app.services.redis_service import RedisService
 
+logger = logging.getLogger(__name__)
 admin_router = Router()
 
 
@@ -67,6 +69,7 @@ async def create_notification_task(
         ),
     )
 
+    logger.info(f"Scheduler jobs: {scheduler.get_jobs()}")
     await message.answer("Рассылка добавлена")
 
 
