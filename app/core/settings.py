@@ -14,6 +14,7 @@ class Settings:
 
     REDIS_HOST = os.getenv("REDIS_HOST")
     REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     MODERATORS_CHAT_ID = int(os.getenv("MODERATORS_CHAT_ID", 0))

@@ -31,7 +31,9 @@ scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Moscow"))
 db_repo = DbRepo()
 db_service = DbService(db_repo)
 
-redis_repo = RedisRepo(Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, decode_responses=True))
+redis_repo = RedisRepo(
+    Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, password=Settings.REDIS_PASSWORD, code_responses=True)
+)
 redis_service = RedisService(redis_repo)
 
 coordinator = Coordinator(db_service, redis_service)
