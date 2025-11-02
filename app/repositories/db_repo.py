@@ -41,10 +41,9 @@ class DbRepo:
                 )
                 """)
 
-            # Создание таблицы логов (по одной строке на пользователя)
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
-                    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+                    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
                     activity_date TIMESTAMPTZ,
                     viewed_places_count INTEGER DEFAULT 0,
                     has_geolocation BOOLEAN DEFAULT FALSE,
@@ -58,8 +57,8 @@ class DbRepo:
                     user_id BIGINT,
                     place_id INTEGER,   
                     PRIMARY KEY (user_id, place_id),
-                    FOREIGN KEY (user_id) REFERENCES users(id),
-                    FOREIGN KEY (place_id) REFERENCES places(id),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE,
                     viewed BOOLEAN DEFAULT FALSE,
                     reset_viewed_time TIMESTAMPTZ 
                 );
@@ -404,3 +403,7 @@ class DbRepo:
                 ORDER BY activity_date ASC           
                 """
             )
+
+    async def delete_user(self, user_id: int) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute("DELETE FROM users WHERE id = $1", user_id)
