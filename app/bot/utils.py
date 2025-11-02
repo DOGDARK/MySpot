@@ -1,9 +1,8 @@
 import logging
 from math import atan2, cos, radians, sin, sqrt
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import Bot, types
-from aiogram.types import InlineKeyboardMarkup
 
 from app.bot.base_keyboards import get_places_keyboard
 from app.services import redis_service
@@ -211,22 +210,3 @@ def generate_place_text(
 <b>Описание:</b> {place.get("description", "Описание отсутствует")}
 <b>Адрес:</b> {place.get("address", "Адрес не указан")}
         """
-
-
-async def notify_users(
-    bot: Bot,
-    msg_text: str,
-    users_ids: list[int],
-    photo_id: Optional[int] = None,
-    reply_markup: Optional[InlineKeyboardMarkup] = None,
-) -> None:
-    pass
-    for user_id in users_ids:
-        try:
-            if photo_id:
-                await bot.send_photo(chat_id=user_id, photo=photo_id, caption=msg_text, reply_markup=reply_markup)
-            else:
-                await bot.send_message(chat_id=user_id, text=msg_text, reply_markup=reply_markup)
-            logger.info(f"Notification sent to {user_id=}")
-        except Exception as e:
-            logger.error(f"Error sending notification: {e}")
