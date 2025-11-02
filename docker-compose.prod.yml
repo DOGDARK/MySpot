@@ -10,6 +10,7 @@ services:
       timeout: 10s
       retries: 20
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - ${PWD}/volumes/postgres:/var/lib/postgresql/18/docker
     networks:
       - service_network
@@ -19,6 +20,7 @@ services:
     networks:
       - service_network
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - ${PWD}/volumes/redis_data:/data          
       - ${PWD}/volumes/redis.conf:/usr/local/etc/redis/redis.conf  
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
@@ -30,9 +32,12 @@ services:
     command: ["python", "-m", "app.main"]
     networks:
       - service_network
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
       db:
         condition: service_healthy 
+    
 
 networks:
   service_network:
