@@ -187,6 +187,9 @@ def generate_place_text(
     distance_text: str | None = None,
     categories_text: str | None = None,
     wishes_text: str | None = None,
+    user_categories: dict | None = None,
+    user_wishes: dict | None = None,
+    user_filters: dict | None = None
 ) -> str:
     place_name = (
         f"<a href='{website}'>{place.get('name', 'Не указано')}</a>" if website else place.get("name", "Не указано")
@@ -195,9 +198,12 @@ def generate_place_text(
     if categories_text and wishes_text:
         return f"""
 <b>Название места:</b> {place_name}
-<b>Фильтры:</b> {place.get("categories", "Не указаны")}
-<b>Категории:</b> {categories_text}
-<b>Пожелания:</b> {wishes_text}
+<b>Фильтры места:</b> {place.get("categories", "Не указаны")}
+<b>Категории места:</b> {categories_text}
+<b>Пожелания места:</b> {wishes_text}
+<b>Фильтры пользователя:</b> {user_filters}
+<b>Категории пользователя:</b> {user_categories}
+<b>Пожелания польтзователя:</b> {user_wishes}
 <b>Рейтинг:</b> {rating}
 <b>Описание:</b> {place.get("description", "Описание отсутствует")}
 <b>Адрес:</b> {place.get("address", "Адрес не указан")}

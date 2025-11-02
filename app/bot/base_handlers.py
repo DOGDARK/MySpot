@@ -43,7 +43,11 @@ class FilterStates(StatesGroup):
 async def process_place_bad(callback_query: types.CallbackQuery, redis_service: RedisService, db_service: DbService):
     user_id = callback_query.from_user.id
 
+    user = await db_service.get_user(user_id)
     user_data = redis_service.get_user_data(user_id)
+    user_categories = user_data.get("selected_categories", [])
+    user_wishes = user_data.get("selected_wishes", [])
+    user_filters=user["filters"] if user else []
     places = user_data.get("places", [])
     index = user_data.get("current_place_index", 0)
 
@@ -62,7 +66,7 @@ async def process_place_bad(callback_query: types.CallbackQuery, redis_service: 
 
     # Формируем текст
     place_text = generate_place_text(
-        place, website, rating_text, categories_text=categories_text, wishes_text=wishes_text
+        place, website, rating_text, categories_text=categories_text, wishes_text=wishes_text, user_categories=user_categories, user_filters=user_filters, user_wishes=user_wishes
     )
 
     photo_url = place.get("photo")
