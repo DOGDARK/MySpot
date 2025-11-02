@@ -17,6 +17,9 @@ from app.bot.base_keyboards import (
     get_update_keyboard,
     get_view_places_keyboard,
     get_wishes_keyboard,
+    get_like_dislike_keyboard,
+    liked_keyboard,
+    disliked_keyboard
 )
 from app.bot.constants import Constants
 from app.bot.msgs_text import AVAILABLE_FILTERS, MsgsText
@@ -144,6 +147,278 @@ async def reset_viewed(callback: types.CallbackQuery, db_service: DbService):
     await db_service.reset_viewed(user_id)
     await callback.answer()
 
+@base_router.callback_query(F.data == "like_place")
+async def liked_place(callback: types.CallbackQuery, coordinator: Coordinator):
+    print('1 step to like')
+    user_id = callback.from_user.id
+    await coordinator.like_place(user_id)
+
+@base_router.callback_query(F.data == "dislike_place")
+async def disliked_place(callback: types.CallbackQuery, coordinator: Coordinator):
+    user_id = callback.from_user.id
+    await coordinator.dislike_place(user_id)
+    
+@base_router.callback_query(F.data == "show_like")
+async def like_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+    user_id = callback.from_user.id
+    await coordinator.move_to_redis_liked_disliked_places(user_id)
+
+    text = MsgsText.LIKES.value
+    added_text = await coordinator.show_liked_disliked(user_id, 0, 7)
+    text += added_text
+
+    try:
+        await callback.message.edit_text(
+            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id)
+        )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        chat_id = callback.message.chat.id
+        await update_or_send_message(
+            chat_id=chat_id,
+            text=text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id),
+        )
+
+    await callback.answer()
+
+    await db_service.update_user_activity(callback.from_user.id)
+
+
+
+@base_router.callback_query(F.data == "show_dislike")
+async def dislike_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+    user_id = callback.from_user.id
+    await coordinator.move_to_redis_liked_disliked_places(user_id, False)
+
+    text = MsgsText.DISLIKES.value
+    added_text = await coordinator.show_liked_disliked(user_id, 0, 7, False)
+    text += added_text
+    
+    try:
+        await callback.message.edit_text(
+            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False)
+        )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        chat_id = callback.message.chat.id
+        await update_or_send_message(
+            chat_id=chat_id,
+            text=text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False),
+        )
+
+    await callback.answer()
+
+    await db_service.update_user_activity(callback.from_user.id)
+
+
+
+@base_router.callback_query(F.data.startswith("like_page_"))
+async def handle_like_page(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+    user_id = callback.from_user.id
+    page = int(callback.data.split("_")[2])
+
+    start = 8*page
+
+    text = MsgsText.LIKES.value
+    added_text = await coordinator.show_liked_disliked(user_id, start, start+7)
+    text += added_text
+
+    try:
+        await callback.message.edit_text(
+            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, page)
+        )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        chat_id = callback.message.chat.id
+        await update_or_send_message(
+            chat_id=chat_id,
+            text=text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, page),
+        )
+
+    await callback.answer()
+
+    await db_service.update_user_activity(callback.from_user.id)
+
+
+@base_router.callback_query(F.data.startswith("dislike_page_"))
+async def handle_dislike_page(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+    user_id = callback.from_user.id
+    page = int(callback.data.split("_")[2])
+
+    start = 8*page
+
+    text = MsgsText.DISLIKES.value
+    added_text = await coordinator.show_liked_disliked(user_id, start, start+7, False)
+    text += added_text
+    
+    try:
+        await callback.message.edit_text(
+            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, page, False)
+        )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        chat_id = callback.message.chat.id
+        await update_or_send_message(
+            chat_id=chat_id,
+            text=text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, page, False),
+        )
+
+    await callback.answer()
+
+    await db_service.update_user_activity(callback.from_user.id)
+
+
+@base_router.callback_query(F.data.startswith("liked_"))
+async def handle_liked_selection(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
+    user_id = callback.from_user.id
+    chat_id = callback.message.chat.id
+
+    parts = callback.data.split("_")
+    place_index = int(parts[1])
+    current_page = int(parts[2])
+    places_per_page = 8
+    start_idx = current_page * places_per_page
+
+    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx+places_per_page)
+
+    place = places[place_index]
+
+     # Формируем текст с рейтингом
+    rating = place.get("rating")
+    rating_text = f"⭐ {rating}/5" if rating else "⭐ Рейтинг не указан"
+
+    # Получаем категории и пожелания места из базы данных и ормируем текст с категориями и пожеланиями
+    categories_text, wishes_text, website = await db_service.get_categories_and_wishes(place)
+
+    distance_text = ""
+
+    place_text = generate_place_text(place, website, rating_text, distance_text)
+
+    # Получаем ссылку на фото и проверяем ее валидность
+    photo_url = place.get("photo")
+
+    # Проверяем, является ли photo_url валидной ссылкой
+    if photo_url and isinstance(photo_url, str) and photo_url.startswith(("http://", "https://")):
+        try:
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=place_text,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=liked_keyboard(current_page, place_index),
+                photo_url=photo_url,
+            )
+        except Exception as e:
+            logger.error(f"Error sending photo message: {e}")
+            # Если не удалось отправить с фото, отправляем без фото
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=place_text,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=liked_keyboard(current_page, place_index),
+            )
+    else:
+        # Если фото нет или ссылка невалидна, отправляем без фото
+        await update_or_send_message(
+            chat_id=chat_id, text=place_text, bot=bot, redis_service=redis_service, reply_markup=liked_keyboard(current_page, place_index)
+        )
+
+@base_router.callback_query(F.data.startswith("disliked_"))
+async def handle_disliked_selection(
+    callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
+):
+    user_id = callback.from_user.id
+    chat_id = callback.message.chat.id
+
+    parts = callback.data.split("_")
+    place_index = int(parts[1])
+    current_page = int(parts[2])
+    places_per_page = 8
+    start_idx = current_page * places_per_page
+
+    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx+places_per_page, False)
+
+    place = places[place_index]
+
+     # Формируем текст с рейтингом
+    rating = place.get("rating")
+    rating_text = f"⭐ {rating}/5" if rating else "⭐ Рейтинг не указан"
+
+    # Получаем категории и пожелания места из базы данных и ормируем текст с категориями и пожеланиями
+    categories_text, wishes_text, website = await db_service.get_categories_and_wishes(place)
+
+    distance_text = ""
+
+    place_text = generate_place_text(place, website, rating_text, distance_text)
+
+    # Получаем ссылку на фото и проверяем ее валидность
+    photo_url = place.get("photo")
+
+    # Проверяем, является ли photo_url валидной ссылкой
+    if photo_url and isinstance(photo_url, str) and photo_url.startswith(("http://", "https://")):
+        try:
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=place_text,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=disliked_keyboard(current_page, place_index),
+                photo_url=photo_url,
+            )
+        except Exception as e:
+            logger.error(f"Error sending photo message: {e}")
+            # Если не удалось отправить с фото, отправляем без фото
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=place_text,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=disliked_keyboard(current_page, place_index),
+            )
+    else:
+        # Если фото нет или ссылка невалидна, отправляем без фото
+        await update_or_send_message(
+            chat_id=chat_id, text=place_text, bot=bot, redis_service=redis_service, reply_markup=disliked_keyboard(current_page, place_index)
+        )
+
+@base_router.callback_query(F.data.startswith("delete_from_liked_"))
+async def delete_from_liked(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+    user_id = callback.from_user.id
+
+    place_index = int(callback.data.split('_')[3])
+
+    places = redis_service.get_liked_disliked(user_id, place_index, place_index)
+    place = places[0]
+    place_name = place['name']
+    await db_service.delete_liked_disliked(user_id, place_name)
+    await like_main(callback, db_service, redis_service, bot, coordinator)
+
+@base_router.callback_query(F.data.startswith("delete_from_disliked_"))
+async def delete_from_disliked(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+    user_id = callback.from_user.id
+
+    place_index = int(callback.data.split('_')[3])
+
+    places = redis_service.get_liked_disliked(user_id, place_index, place_index, False)
+    place = places[0]
+    place_name = place['name']
+    await db_service.delete_liked_disliked(user_id, place_name)
+    await dislike_main(callback, db_service, redis_service, bot, coordinator)
 
 @base_router.callback_query(F.data == "reset_all_filters")
 async def reset_all_filters(

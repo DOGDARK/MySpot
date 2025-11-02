@@ -61,7 +61,8 @@ class DbRepo:
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (place_id) REFERENCES places(id),
                     viewed BOOLEAN DEFAULT FALSE,
-                    reset_viewed_time TIMESTAMPTZ 
+                    reset_viewed_time TIMESTAMPTZ,
+                    favourite BOOLEAN
                 );
                 """)
 
@@ -272,14 +273,21 @@ class DbRepo:
                 """
             )
 
-    async def get_places_data(self) -> list[asyncpg.Record]:
+    async def get_places_data(self, user_id) -> list[asyncpg.Record]:
         async with self._pool.acquire() as conn:
             res = await conn.fetch(
                 """
                 SELECT id, name, address, description, categories_ya, categories_1, 
                 categories_2, photo, rating, latitude, longitude
-                FROM places
-                """
+                FROM places AS p
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM users_places AS up
+                    WHERE up.place_id = p.id
+                    AND up.user_id = $1
+                    AND (up.viewed IS TRUE OR up.favourite IS NOT NULL)
+                """, 
+                user_id
             )
             return res
 
@@ -307,11 +315,31 @@ class DbRepo:
             await conn.execute(
                 """
                 DELETE FROM users_places
-                WHERE user_id = $1 AND viewed = FALSE
+                WHERE user_id = $1 AND viewed = FALSE AND favourite IS NULL
                 """,
                 user_id,
             )
             return current_viewed_state
+
+    async def get_liked_places(self, user_id: int):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT p.*
+                FROM users_places up
+                JOIN places p ON up.place_id = p.id
+                WHERE up.user_id = $1 AND up.favourite = TRUE
+            """, user_id)
+            return [row for row in rows]
+
+    async def get_disliked_places(self, user_id: int):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT p.*
+                FROM users_places up
+                JOIN places p ON up.place_id = p.id
+                WHERE up.user_id = $1 AND up.favourite = FALSE
+            """, user_id)
+            return [row for row in rows]
 
     async def save_user_places_relation(
         self,
@@ -341,7 +369,7 @@ class DbRepo:
                 *,
                 ROW_NUMBER() OVER () AS rn
                 FROM users_places
-                WHERE user_id = $1 AND viewed = FALSE
+                WHERE user_id = $1 AND viewed = FALSE AND favourite IS NULL
             )
                 SELECT
                     p.id,
@@ -366,6 +394,51 @@ class DbRepo:
                 """
                 UPDATE users_places AS up
                 SET viewed = TRUE
+                FROM places
+                WHERE up.place_id = places.id
+                AND places.name = $1
+                AND up.user_id = $2
+                """,
+                place_name,
+                user_id,
+            )
+
+    async def mark_place_as_liked(self, user_id: int, place_name: str) -> None:
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE users_places AS up
+                    SET favourite = TRUE
+                    FROM places
+                    WHERE up.place_id = places.id
+                    AND places.name = $1
+                    AND up.user_id = $2
+                    """,
+                    place_name,
+                    user_id,
+                )
+    
+    async def mark_place_as_disliked(self, user_id: int, place_name: str) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE users_places AS up
+                SET favourite = FALSE
+                FROM places
+                WHERE up.place_id = places.id
+                AND places.name = $1
+                AND up.user_id = $2
+                """,
+                place_name,
+                user_id,
+            )
+    
+    async def delete_liked_disliked(self, user_id: int, place_name: str) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE users_places AS up
+                SET favourite = NULL
                 FROM places
                 WHERE up.place_id = places.id
                 AND places.name = $1

@@ -21,3 +21,10 @@ class RedisRepo:
 
     def get_keys(self, pattern: str = "*") -> list[Any]:
         return self._r.keys(pattern)
+    
+    def set_list(self, key: Any, val: list[Any]) -> None:
+        self._r.delete(key)
+        self._r.rpush(key, *val)
+    
+    def get_list(self, key: Any, start_idx: int, end_idx: int) -> list[Any]:
+        return self._r.lrange(key, start_idx, end_idx)
