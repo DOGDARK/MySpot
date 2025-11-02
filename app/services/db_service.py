@@ -466,3 +466,9 @@ class DbService:
             if i != len(rows) - 1:
                 res += "\n"
         return res
+
+    async def delete_user(self, user_id: int) -> None:
+        try:
+            await self._repo.delete_user(user_id)
+        except Exception as e:
+            logger.error(f"Error while deleting user {user_id=}: {e}")
