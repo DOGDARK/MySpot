@@ -30,7 +30,13 @@ class RedisService:
         logger.info(f"Setting liked for {user_id=}")
         key = f'liked:{user_id}' if liked else f'disliked:{user_id}'
         serialized_data = [json.dumps(dict(r)) for r in data]
-        self._repo.set_list(key, serialized_data)
+        if serialized_data:
+            self._repo.set_list(key, serialized_data)
+    
+    def delete_key(self, user_id: int, liked: bool = True) -> None:
+        key = f'liked:{user_id}' if liked else f'disliked:{user_id}'
+        print('deleted')
+        self._repo.delete_key(key)
     
     def get_liked_disliked(self, user_id: int, start_idx: int, end_idx: int, liked: bool = True) -> list[dict[str, Any]]:
         key = f'liked:{user_id}' if liked else f'disliked:{user_id}'

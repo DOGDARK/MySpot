@@ -30,7 +30,6 @@ class Coordinator:
         current_index = user_data.get("current_place_index", 0)
         place = user_data.get("places", [])[current_index]
         place_name = place['name']
-        print('2 step to like')
         await self._db_service.mark_place_as_liked(user_id, place_name)
     
     async def dislike_place(self, user_id: int):
@@ -56,7 +55,14 @@ class Coordinator:
             places = await self._db_service.get_disliked_places(user_id)
         self._redis_service.set_user_liked_disliked(user_id, places, liked)
     
-    async def delete_liked_disliked(self, user_id: int, place_id: int, liked: bool = True):
-        pass
+
+    async def delete_liked_disliked(self, user_id: int, place_name: str, liked: bool = True):
+        try:
+            print(self._redis_service.get_liked_disliked_count(user_id, liked))
+            if self._redis_service.get_liked_disliked_count(user_id, liked) == 1:
+                self._redis_service.delete_key(user_id, liked)
+            return await self._db_service.delete_liked_disliked(user_id, place_name)
+        except Exception as e:
+            logger.error(f"Error deleting place from liked or disliked: {e}")
 
     

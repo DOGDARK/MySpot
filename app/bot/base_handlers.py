@@ -148,43 +148,54 @@ async def reset_viewed(callback: types.CallbackQuery, db_service: DbService):
     await callback.answer()
 
 @base_router.callback_query(F.data == "like_place")
-async def liked_place(callback: types.CallbackQuery, coordinator: Coordinator):
-    print('1 step to like')
+async def liked_place(callback: types.CallbackQuery, coordinator: Coordinator,
+                      redis_service: RedisService, db_service: DbService, bot: Bot):
     user_id = callback.from_user.id
     await coordinator.like_place(user_id)
+    new_callback = callback.model_copy(update={'data': 'place_next'})
+    await navigate_places(new_callback, redis_service, db_service, bot)
 
 @base_router.callback_query(F.data == "dislike_place")
-async def disliked_place(callback: types.CallbackQuery, coordinator: Coordinator):
+async def disliked_place(callback: types.CallbackQuery, coordinator: Coordinator,
+                      redis_service: RedisService, db_service: DbService, bot: Bot):
     user_id = callback.from_user.id
     await coordinator.dislike_place(user_id)
+    new_callback = callback.model_copy(update={'data': 'place_next'})
+    await navigate_places(new_callback, redis_service, db_service, bot)
     
 @base_router.callback_query(F.data == "show_like")
 async def like_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
     user_id = callback.from_user.id
     await coordinator.move_to_redis_liked_disliked_places(user_id)
+    places = redis_service.get_liked_disliked(user_id, 0, 1)
 
-    text = MsgsText.LIKES.value
-    added_text = await coordinator.show_liked_disliked(user_id, 0, 7)
-    text += added_text
+    if places:
+        text = MsgsText.LIKES.value
+        added_text = await coordinator.show_liked_disliked(user_id, 0, 7)
+        text += added_text
 
-    try:
-        await callback.message.edit_text(
-            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id)
-        )
-    except Exception as e:
-        logger.error(f"Error editing message: {e}")
-        chat_id = callback.message.chat.id
-        await update_or_send_message(
-            chat_id=chat_id,
-            text=text,
-            bot=bot,
-            redis_service=redis_service,
-            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id),
-        )
+        try:
+            await callback.message.edit_text(
+                text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id)
+            )
+        except Exception as e:
+            logger.error(f"Error editing message: {e}")
+            chat_id = callback.message.chat.id
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=text,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id),
+            )
 
-    await callback.answer()
-
+        await callback.answer()
+    else:
+        await callback.answer("У вас нет лайков")
+        await dislike_main(callback, db_service, redis_service, bot, coordinator)
+    
     await db_service.update_user_activity(callback.from_user.id)
+    
 
 
 
@@ -192,29 +203,34 @@ async def like_main(callback: types.CallbackQuery, db_service: DbService, redis_
 async def dislike_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
     user_id = callback.from_user.id
     await coordinator.move_to_redis_liked_disliked_places(user_id, False)
+    places = redis_service.get_liked_disliked(user_id, 0, 1, False)
 
-    text = MsgsText.DISLIKES.value
-    added_text = await coordinator.show_liked_disliked(user_id, 0, 7, False)
-    text += added_text
-    
-    try:
-        await callback.message.edit_text(
-            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False)
-        )
-    except Exception as e:
-        logger.error(f"Error editing message: {e}")
-        chat_id = callback.message.chat.id
-        await update_or_send_message(
-            chat_id=chat_id,
-            text=text,
-            bot=bot,
-            redis_service=redis_service,
-            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False),
-        )
+    if places:
+        text = MsgsText.DISLIKES.value
+        added_text = await coordinator.show_liked_disliked(user_id, 0, 7, False)
+        text += added_text
+        
+        try:
+            await callback.message.edit_text(
+                text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False)
+            )
+        except Exception as e:
+            logger.error(f"Error editing message: {e}")
+            chat_id = callback.message.chat.id
+            await update_or_send_message(
+                chat_id=chat_id,
+                text=text,
+                bot=bot,
+                redis_service=redis_service,
+                reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False),
+            )
 
-    await callback.answer()
+        await callback.answer()
+    else:
+        await callback.answer("У вас нет дизлайков")
 
     await db_service.update_user_activity(callback.from_user.id)
+    
 
 
 
@@ -405,7 +421,7 @@ async def delete_from_liked(callback: types.CallbackQuery, db_service: DbService
     places = redis_service.get_liked_disliked(user_id, place_index, place_index)
     place = places[0]
     place_name = place['name']
-    await db_service.delete_liked_disliked(user_id, place_name)
+    await coordinator.delete_liked_disliked(user_id, place_name)
     await like_main(callback, db_service, redis_service, bot, coordinator)
 
 @base_router.callback_query(F.data.startswith("delete_from_disliked_"))
@@ -417,7 +433,7 @@ async def delete_from_disliked(callback: types.CallbackQuery, db_service: DbServ
     places = redis_service.get_liked_disliked(user_id, place_index, place_index, False)
     place = places[0]
     place_name = place['name']
-    await db_service.delete_liked_disliked(user_id, place_name)
+    await coordinator.delete_liked_disliked(user_id, place_name, False)
     await dislike_main(callback, db_service, redis_service, bot, coordinator)
 
 @base_router.callback_query(F.data == "reset_all_filters")

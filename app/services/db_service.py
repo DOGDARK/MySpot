@@ -393,7 +393,6 @@ class DbService:
     async def mark_place_as_liked(self, user_id: int, place_name: str) -> None:
         try:
             await self._repo.mark_place_as_liked(user_id, place_name)
-            print('3 step to like')
         except Exception as e:
             logger.error(f"Error marking place as liked: {e}")
     

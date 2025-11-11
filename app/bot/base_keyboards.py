@@ -88,7 +88,7 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
             nav_buttons.append(InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"like_page_{page + 1}"))
         if nav_buttons:
             buttons.append(nav_buttons)
-        buttons.append([InlineKeyboardButton(text="Дизлайки", callback_data="show_dislike")])
+        buttons.append([InlineKeyboardButton(text="👎 Дизлайки", callback_data="show_dislike")])
     else:
         buttons = []
 
@@ -120,7 +120,7 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
             nav_buttons.append(InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"dislike_page_{page + 1}"))
         if nav_buttons:
             buttons.append(nav_buttons)
-        buttons.append([InlineKeyboardButton(text="Лайки", callback_data="show_like")])
+        buttons.append([InlineKeyboardButton(text="👍 Лайки", callback_data="show_like")])
 
     buttons.append([InlineKeyboardButton(text="↩️ Назад", callback_data="main_menu")])
 
@@ -158,7 +158,7 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="🗺️ Геолокация", callback_data="show_geolocation_main"),
             ],
             [
-                InlineKeyboardButton(text="Лайки/Дизлайки", callback_data="show_like"),
+                InlineKeyboardButton(text="👍Лайки/Дизлайки👎", callback_data="show_like"),
                 InlineKeyboardButton(text="❓ Помощь", callback_data="show_help_main"),
             ]
         ]

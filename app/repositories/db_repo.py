@@ -277,15 +277,24 @@ class DbRepo:
         async with self._pool.acquire() as conn:
             res = await conn.fetch(
                 """
-                SELECT id, name, address, description, categories_ya, categories_1, 
-                categories_2, photo, rating, latitude, longitude
-                FROM places AS p
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM users_places AS up
-                    WHERE up.place_id = p.id
+                SELECT p.id,
+                p.name,
+                p.address,
+                p.description,
+                p.categories_ya,
+                p.categories_1,
+                p.categories_2,
+                p.photo,
+                p.rating,
+                p.latitude,
+                p.longitude
+                FROM places p
+                LEFT JOIN users_places up 
+                    ON up.place_id = p.id
                     AND up.user_id = $1
-                    AND (up.viewed IS TRUE OR up.favourite IS NOT NULL)
+                WHERE 
+                    (up.viewed = FALSE AND up.favourite = FALSE)
+                OR up.place_id IS NULL;
                 """, 
                 user_id
             )
