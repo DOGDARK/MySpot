@@ -550,7 +550,7 @@ async def cmd_start(
         # Сначала отправляем приветственное сообщение
         await update_or_send_message(
             chat_id=message.chat.id,
-            text=MsgsText.WELCOME.value[random.choice(0, len(MsgsText.WELCOME.value) - 1)],
+            text = random.choice(MsgsText.WELCOME.value),
             bot=bot,
             redis_service=redis_service,
             reply_markup=get_main_keyboard(),
@@ -568,48 +568,51 @@ async def cmd_start(
                 "current_place_index": 0,
             },
         )
-
         await update_or_send_message(
             chat_id=message.chat.id,
-            text=MsgsText.WELCOME.value[random.choice(0, len(MsgsText.WELCOME.value) - 1)],
+            text=MsgsText.GUIDE.value[0],
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_main_keyboard(),
-            gif=...,
+            reply_markup= await get_guide_keyboard(0),
+            gif='app/data/images/categories.mp4'
         )
 
     # Потом удаляем сообщение пользователя с командой start
     await delete_user_message(message)
 
+
 @base_router.callback_query(F.data.startswith("guide_page_"))
 async def handle_guide_page(
-    message: types.Message,
     callback: types.CallbackQuery,
+    message: types.Message,
     db_service: DbService,
     redis_service: RedisService,
     bot: Bot,
 ):
     user_id = callback.from_user.id
 
-    # Получаем номер страницы из callback_data
     page = int(callback.data.split("_")[2])
 
-    # Здесь можно загрузить текст или оставить пустым
     text = MsgsText.GUIDE.value[page]
+
+    if page == 0:
+        gif = 'app/data/images/categories.mp4'
+    elif page == 1:
+        gif = 'app/data/images/filters.mp4'
+    elif page == 2:
+        gif = 'app/data/images/geolocation.mp4'
 
     await update_or_send_message(
             chat_id=message.chat.id,
             text=text,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_guide_keyboard(page),
-            gif=...,
+            reply_markup= await get_guide_keyboard(page),
+            gif=gif,
         )
 
-    # Ответ на callback (обязателен)
     await callback.answer()
 
-    # Обновление активности пользователя
     await db_service.update_user_activity(user_id)
 
 
@@ -1403,7 +1406,7 @@ async def back_to_main_menu(
 
     await update_or_send_message(
         chat_id=chat_id,
-        text=MsgsText.WELCOME.value,
+        text = random.choice(MsgsText.WELCOME.value),
         bot=bot,
         redis_service=redis_service,
         reply_markup=get_main_keyboard(),
