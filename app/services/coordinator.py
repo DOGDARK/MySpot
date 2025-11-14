@@ -43,9 +43,11 @@ class Coordinator:
         places = self._redis_service.get_liked_disliked(user_id, start_idx, end_idx, liked)
 
         text = ""
-        print(len)
-        for idx in range(len(places)):
-            text += f"{idx+1}) {places[idx]['name']} {places[idx]['address']}\n"
+        if places:
+            for idx in range(len(places)):
+                text += f"{idx+1}) {places[idx]['name']} {places[idx]['address']}\n"
+        else:
+            text = "Здесь пока пусто"
         return text
 
     async def move_to_redis_liked_disliked_places(self, user_id: int, liked: bool = True):

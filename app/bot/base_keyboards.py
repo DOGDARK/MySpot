@@ -57,6 +57,41 @@ async def get_filters_keyboard(user_id: int, db_service: DbService, page: int = 
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+async def get_guide_keyboard(page: int = 0):
+    total_pages = 2
+    buttons = []
+
+    nav_row = []
+
+    if page > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                text="⬅️ Назад",
+                callback_data=f"guide_page_{page-1}"
+            )
+        )
+
+    if page < total_pages:
+        nav_row.append(
+            InlineKeyboardButton(
+                text="➡️ Вперёд",
+                callback_data=f"guide_page_{page+1}"
+            )
+        )
+
+    if nav_row:
+        buttons.append(nav_row)
+
+    if page == total_pages:
+        buttons.append([
+            InlineKeyboardButton(
+                text="Завершить",
+                callback_data="main_menu"
+            )
+        ])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: RedisService, user_id: int, page: int = 0, like: bool = True) -> InlineKeyboardMarkup:
     if like:
         buttons = []
@@ -88,7 +123,7 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
             nav_buttons.append(InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"like_page_{page + 1}"))
         if nav_buttons:
             buttons.append(nav_buttons)
-        buttons.append([InlineKeyboardButton(text="👎 Дизлайки", callback_data="show_dislike")])
+        buttons.append([InlineKeyboardButton(text="Скрытые 🚫", callback_data="show_dislike")])
     else:
         buttons = []
 
@@ -120,7 +155,7 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
             nav_buttons.append(InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"dislike_page_{page + 1}"))
         if nav_buttons:
             buttons.append(nav_buttons)
-        buttons.append([InlineKeyboardButton(text="👍 Лайки", callback_data="show_like")])
+        buttons.append([InlineKeyboardButton(text="❤️ Избранное", callback_data="show_like")])
 
     buttons.append([InlineKeyboardButton(text="↩️ Назад", callback_data="main_menu")])
 
@@ -151,14 +186,14 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="📍 Просмотр мест", callback_data="view_places_main"),
-                InlineKeyboardButton(text="📂 Категории", callback_data="show_categories_main"),
+                InlineKeyboardButton(text="❤️ Избранное", callback_data="show_like"),
             ],
             [
                 InlineKeyboardButton(text="⚙️ Фильтры", callback_data="show_filters_main"),
-                InlineKeyboardButton(text="🗺️ Геолокация", callback_data="show_geolocation_main"),
+                InlineKeyboardButton(text="📂 Категории", callback_data="show_categories_main"),
             ],
             [
-                InlineKeyboardButton(text="👍Лайки/Дизлайки👎", callback_data="show_like"),
+                InlineKeyboardButton(text="🗺️ Геолокация", callback_data="show_geolocation_main"),
                 InlineKeyboardButton(text="❓ Помощь", callback_data="show_help_main"),
             ]
         ]
@@ -225,12 +260,12 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="Вперёд ➡️", callback_data="place_next"),
             ],
             [
-                InlineKeyboardButton(text="👍 Лайк", callback_data="like_place"),
-                InlineKeyboardButton(text="Дизлайк 👎", callback_data="dislike_place"),
+                InlineKeyboardButton(text="Нравится ❤️", callback_data="like_place"),
+                InlineKeyboardButton(text="Не нравится 🚫", callback_data="dislike_place"),
             ],
             [
-                InlineKeyboardButton(text="❌ С местом что-то не так", callback_data="place_bad"),
-                InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu"),
+                InlineKeyboardButton(text="Проблема с местом?", callback_data="place_bad"),
+                InlineKeyboardButton(text="Главное меню ↩️", callback_data="main_menu"),
             ],
         ]
     )

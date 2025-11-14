@@ -357,7 +357,7 @@ class DbRepo:
         viewed: int,
     ):
         async with self._pool.acquire() as conn:
-            reset_viewed_time = datetime.now(pytz.utc) + timedelta(weeks=1)
+            reset_viewed_time = datetime.now(pytz.utc) + timedelta(days=1)
             await conn.execute(
                 """
                 INSERT INTO users_places(user_id, place_id, viewed, reset_viewed_time)

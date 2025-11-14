@@ -1,4 +1,5 @@
 import logging
+import random
 
 from aiogram import Bot, F, Router, types
 from aiogram.filters import Command
@@ -19,7 +20,8 @@ from app.bot.base_keyboards import (
     get_wishes_keyboard,
     get_like_dislike_keyboard,
     liked_keyboard,
-    disliked_keyboard
+    disliked_keyboard,
+    get_guide_keyboard
 )
 from app.bot.constants import Constants
 from app.bot.msgs_text import AVAILABLE_FILTERS, MsgsText
@@ -167,32 +169,27 @@ async def disliked_place(callback: types.CallbackQuery, coordinator: Coordinator
 async def like_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
     user_id = callback.from_user.id
     await coordinator.move_to_redis_liked_disliked_places(user_id)
-    places = redis_service.get_liked_disliked(user_id, 0, 1)
 
-    if places:
-        text = MsgsText.LIKES.value
-        added_text = await coordinator.show_liked_disliked(user_id, 0, 7)
-        text += added_text
+    text = MsgsText.LIKES.value
+    added_text = await coordinator.show_liked_disliked(user_id, 0, 7)
+    text += added_text
 
-        try:
-            await callback.message.edit_text(
-                text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id)
-            )
-        except Exception as e:
-            logger.error(f"Error editing message: {e}")
-            chat_id = callback.message.chat.id
-            await update_or_send_message(
-                chat_id=chat_id,
-                text=text,
-                bot=bot,
-                redis_service=redis_service,
-                reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id),
-            )
+    try:
+        await callback.message.edit_text(
+            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id)
+        )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        chat_id = callback.message.chat.id
+        await update_or_send_message(
+            chat_id=chat_id,
+            text=text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id),
+        )
 
-        await callback.answer()
-    else:
-        await callback.answer("У вас нет лайков")
-        await dislike_main(callback, db_service, redis_service, bot, coordinator)
+    await callback.answer()
     
     await db_service.update_user_activity(callback.from_user.id)
     
@@ -203,32 +200,27 @@ async def like_main(callback: types.CallbackQuery, db_service: DbService, redis_
 async def dislike_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
     user_id = callback.from_user.id
     await coordinator.move_to_redis_liked_disliked_places(user_id, False)
-    places = redis_service.get_liked_disliked(user_id, 0, 1, False)
 
-    if places:
-        text = MsgsText.DISLIKES.value
-        added_text = await coordinator.show_liked_disliked(user_id, 0, 7, False)
-        text += added_text
-        
-        try:
-            await callback.message.edit_text(
-                text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False)
-            )
-        except Exception as e:
-            logger.error(f"Error editing message: {e}")
-            chat_id = callback.message.chat.id
-            await update_or_send_message(
-                chat_id=chat_id,
-                text=text,
-                bot=bot,
-                redis_service=redis_service,
-                reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False),
-            )
+    text = MsgsText.DISLIKES.value
+    added_text = await coordinator.show_liked_disliked(user_id, 0, 7, False)
+    text += added_text
+    
+    try:
+        await callback.message.edit_text(
+            text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False)
+        )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        chat_id = callback.message.chat.id
+        await update_or_send_message(
+            chat_id=chat_id,
+            text=text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False),
+        )
 
-        await callback.answer()
-    else:
-        await callback.answer("У вас нет дизлайков")
-
+    await callback.answer()
     await db_service.update_user_activity(callback.from_user.id)
     
 
@@ -552,6 +544,19 @@ async def cmd_start(
                 "current_place_index": 0,
             },
         )
+
+        photo = FSInputFile(START_IMG_PATH)
+
+        # Сначала отправляем приветственное сообщение
+        await update_or_send_message(
+            chat_id=message.chat.id,
+            text=MsgsText.WELCOME.value[random.choice(0, len(MsgsText.WELCOME.value) - 1)],
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_main_keyboard(),
+            photo_url=photo,
+        )
+
     else:
         # Создаем нового пользователя
         await coordinator.save_user(user_id)
@@ -564,20 +569,48 @@ async def cmd_start(
             },
         )
 
-    photo = FSInputFile(START_IMG_PATH)
-
-    # Сначала отправляем приветственное сообщение
-    await update_or_send_message(
-        chat_id=message.chat.id,
-        text=MsgsText.WELCOME.value,
-        bot=bot,
-        redis_service=redis_service,
-        reply_markup=get_main_keyboard(),
-        photo_url=photo,
-    )
+        await update_or_send_message(
+            chat_id=message.chat.id,
+            text=MsgsText.WELCOME.value[random.choice(0, len(MsgsText.WELCOME.value) - 1)],
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_main_keyboard(),
+            gif=...,
+        )
 
     # Потом удаляем сообщение пользователя с командой start
     await delete_user_message(message)
+
+@base_router.callback_query(F.data.startswith("guide_page_"))
+async def handle_guide_page(
+    message: types.Message,
+    callback: types.CallbackQuery,
+    db_service: DbService,
+    redis_service: RedisService,
+    bot: Bot,
+):
+    user_id = callback.from_user.id
+
+    # Получаем номер страницы из callback_data
+    page = int(callback.data.split("_")[2])
+
+    # Здесь можно загрузить текст или оставить пустым
+    text = MsgsText.GUIDE.value[page]
+
+    await update_or_send_message(
+            chat_id=message.chat.id,
+            text=text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=get_guide_keyboard(page),
+            gif=...,
+        )
+
+    # Ответ на callback (обязателен)
+    await callback.answer()
+
+    # Обновление активности пользователя
+    await db_service.update_user_activity(user_id)
 
 
 @base_router.message(Command("help"))
