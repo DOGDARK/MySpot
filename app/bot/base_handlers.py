@@ -38,7 +38,6 @@ base_router = Router()
 
 
 MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
-START_IMG_PATH = "app/data/images/start_img.jpg"
 CATEGORIES_GIF = FSInputFile("app/data/images/categories.mp4")
 FILTERS_GIF = FSInputFile("app/data/images/filters.mp4")
 GEOLOCATION_GIF = FSInputFile("app/data/images/geolocation.mp4")
@@ -653,8 +652,8 @@ async def cmd_start(
             },
         )
 
-        photo = FSInputFile(START_IMG_PATH)
-
+        photo = FSInputFile(Constants.START_IMG_PATH.value)
+        print(photo)
         # Сначала отправляем приветственное сообщение
         await update_or_send_message(
             chat_id=message.chat.id,
