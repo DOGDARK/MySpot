@@ -3,6 +3,7 @@ from math import atan2, cos, radians, sin, sqrt
 from typing import Any
 
 from aiogram import Bot, types
+from aiogram.types import InlineKeyboardMarkup, FSInputFile
 
 from app.bot.base_keyboards import get_places_keyboard
 from app.services import redis_service
@@ -22,13 +23,24 @@ async def delete_user_message(message: types.Message):
 
 
 async def update_or_send_message(
-    chat_id: int, text: str, bot: Bot, redis_service: RedisService, reply_markup=None, photo_url: str = None
+    chat_id: int, text: str, bot: Bot, redis_service: RedisService, reply_markup=None, photo_url: str = None, gif: str = None
 ):
     """Обновить существующее сообщение или отправить новое"""
     last_msg = redis_service.get_user_msg(chat_id)
     if last_msg:
         try:
-            if photo_url:
+            if gif:
+                message = await bot.send_animation(
+                    chat_id=chat_id,
+                    animation=gif,
+                    caption=text,
+                    reply_markup=reply_markup,
+                )
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=last_msg)
+                except Exception as e:
+                    logger.error(f"Error while deleting user msg, {e}")
+            elif photo_url:
                 # Если есть фото, отправляем новое сообщение с фото
                 message = await bot.send_photo(
                     chat_id=chat_id,
@@ -82,7 +94,18 @@ async def update_or_send_message(
                 return None
     else:
         try:
-            if photo_url:
+            if gif:
+                message = await bot.send_animation(
+                    chat_id=chat_id,
+                    animation=gif,
+                    caption=text,
+                    reply_markup=reply_markup,
+                )
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=last_msg)
+                except Exception as e:
+                    logger.error(f"Error while deleting user msg, {e}")
+            elif photo_url:
                 message = await bot.send_photo(
                     chat_id=chat_id,
                     photo=photo_url,

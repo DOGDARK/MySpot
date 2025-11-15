@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from app.core.utils import sync_log_decorator
 from app.repositories.redis_repo import RedisRepo
+from asyncpg import Record
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,27 @@ class RedisService:
     def set_user_data(self, user_id: int, data: dict[Any, Any]) -> None:
         logger.info(f"Setting data for {user_id=}")
         self._repo.set(f"data:{user_id}", json.dumps(data))
+    
+    def set_user_liked_disliked(self, user_id: int, data: list[Record], liked: bool = True) -> None:
+        logger.info(f"Setting liked for {user_id=}")
+        key = f'liked:{user_id}' if liked else f'disliked:{user_id}'
+        serialized_data = [json.dumps(dict(r)) for r in data]
+        if serialized_data:
+            self._repo.set_list(key, serialized_data)
+    
+    def delete_key(self, user_id: int, liked: bool = True) -> None:
+        key = f'liked:{user_id}' if liked else f'disliked:{user_id}'
+        print('deleted')
+        self._repo.delete_key(key)
+    
+    def get_liked_disliked(self, user_id: int, start_idx: int, end_idx: int, liked: bool = True) -> list[dict[str, Any]]:
+        key = f'liked:{user_id}' if liked else f'disliked:{user_id}'
+        serialized_data = self._repo.get_list(key, start_idx, end_idx)
+        return [json.loads(d) for d in serialized_data]
+
+    def get_liked_disliked_count(self, user_id: int, liked: bool = True) -> int:
+        key = f'liked:{user_id}' if liked else f'disliked:{user_id}'
+        return len(self._repo.get_list(key, 0, -1))
 
     def get_user_data(self, user_id: int) -> dict[Any, Any]:
         data = self._repo.get(f"data:{user_id}")

@@ -184,6 +184,7 @@ class DbService:
         self,
         categories: set,
         wishes: set,
+        user_id: int,
         user_filters: list = None,
         user_lat: float = None,
         user_lon: float = None,
@@ -197,7 +198,7 @@ class DbService:
         if not categories and not wishes and not user_filters:
             return await self._repo.get_random_places()
 
-        places = await self._repo.get_places_data()
+        places = await self._repo.get_places_data(user_id)
 
         logger.info(f"[get_all_places] Загружено {len(places)} мест из БД")
 
@@ -296,7 +297,6 @@ class DbService:
         try:
             # Сохраняем текущую историю просмотров
             current_viewed_state = await self._repo.get_current_viewed_state_and_del(user_id)
-
             # Получаем настройки пользователя
             user = await self.get_user(user_id)
             if not user:
@@ -308,7 +308,7 @@ class DbService:
 
             # Получаем топ-400 мест (уже сбалансированные)
             final_places = await self.get_all_places(
-                categories, wishes, user_filters, user["latitude"], user["longitude"]
+                categories, wishes, user_id, user_filters, user["latitude"], user["longitude"]
             )
             logger.info(f"[create_user_places_table] Пользователь {user_id}: финально {len(final_places)} мест")
 
@@ -390,6 +390,41 @@ class DbService:
             await self._repo.mark_place_as_viewed(user_id, place_name)
         except Exception as e:
             logger.error(f"Error marking place as viewed: {e}")
+
+    @async_log_decorator(logger)
+    async def mark_place_as_liked(self, user_id: int, place_name: str) -> None:
+        try:
+            await self._repo.mark_place_as_liked(user_id, place_name)
+        except Exception as e:
+            logger.error(f"Error marking place as liked: {e}")
+    
+    @async_log_decorator(logger)
+    async def mark_place_as_disliked(self, user_id: int, place_name: str) -> None:
+        try:
+            await self._repo.mark_place_as_disliked(user_id, place_name)
+        except Exception as e:
+            logger.error(f"Error marking place as disliked: {e}")
+    
+    @async_log_decorator(logger)
+    async def get_liked_places(self, user_id: int):
+        try:
+            return await self._repo.get_liked_places(user_id)
+        except Exception as e:
+            logger.error(f"Error getting liked places: {e}")
+    
+    @async_log_decorator(logger)
+    async def get_disliked_places(self, user_id: int):
+        try:
+            return await self._repo.get_disliked_places(user_id)
+        except Exception as e:
+            logger.error(f"Error getting disliked places: {e}")
+    
+    @async_log_decorator(logger)
+    async def delete_liked_disliked(self, user_id: int, place_name: str):
+        try:
+            return await self._repo.delete_liked_disliked(user_id, place_name)
+        except Exception as e:
+            logger.error(f"Error deleting place from liked or disliked: {e}")
 
     @async_log_decorator(logger)
     async def reset_viewed(self, user_id: int) -> None:  # Не используется
