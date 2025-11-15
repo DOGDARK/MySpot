@@ -189,7 +189,7 @@ def generate_place_text(
     wishes_text: str | None = None,
     user_categories: dict | None = None,
     user_wishes: dict | None = None,
-    user_filters: dict | None = None
+    user_filters: dict | None = None,
 ) -> str:
     place_name = (
         f"<a href='{website}'>{place.get('name', 'Не указано')}</a>" if website else place.get("name", "Не указано")

@@ -194,3 +194,19 @@ def get_view_places_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")],
         ]
     )
+
+
+def get_moders_chat_del_keyboard(place_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ Удалить место", callback_data=f"mod_chat_del:{place_id}")],
+        ]
+    )
+
+
+def get_moders_caht_del_approvement_keyboard(place_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Да!", callback_data=f"approve_del:{place_id}")],
+        ]
+    )

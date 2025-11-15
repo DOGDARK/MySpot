@@ -398,12 +398,16 @@ class DbRepo:
                 """
                 SELECT user_id, activity_date
                 FROM logs
-                WHERE activity_date >= CURRENT_DATE
-                AND activity_date < CURRENT_DATE + INTERVAL '1 day' 
-                ORDER BY activity_date ASC           
+                WHERE activity_date AT TIME ZONE 'Europe/Moscow' >= CURRENT_DATE
+                AND activity_date AT TIME ZONE 'Europe/Moscow' < CURRENT_DATE + INTERVAL '1 day'
+                ORDER BY activity_date ASC
                 """
             )
 
     async def delete_user(self, user_id: int) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute("DELETE FROM users WHERE id = $1", user_id)
+
+    async def delete_place(self, place_id: int) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute("DELETE FROM places WHERE id = $1", place_id)

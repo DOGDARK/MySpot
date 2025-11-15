@@ -81,7 +81,7 @@ async def stats(callback: types.CallbackQuery, db_service: DbService, redis_serv
     if daily_count % 10 == 1:
         text_part = "новый пользователь"
     elif daily_count % 10 in range(2, 5):
-        text = "новых пользователя"
+        text_part = "новых пользователя"
     text = f"Cегодня {daily_count} {text_part}\nВсего - {all_users_count}"
     await callback.message.answer(text)
     await callback.answer()

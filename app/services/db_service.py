@@ -472,3 +472,6 @@ class DbService:
             await self._repo.delete_user(user_id)
         except Exception as e:
             logger.error(f"Error while deleting user {user_id=}: {e}")
+
+    async def delete_place(self, place_id: int) -> None:
+        await self._repo.delete_place(place_id)

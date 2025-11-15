@@ -13,6 +13,8 @@ from app.bot.base_keyboards import (
     get_change_keyboard,
     get_filters_keyboard,
     get_main_keyboard,
+    get_moders_caht_del_approvement_keyboard,
+    get_moders_chat_del_keyboard,
     get_reset_geolocation_keyboard,
     get_update_keyboard,
     get_view_places_keyboard,
@@ -34,7 +36,7 @@ MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
 
 
 # Состояния FSM
-class FilterStates(StatesGroup):
+class FilterState(StatesGroup):
     waiting_for_filter_name = State()
 
 
@@ -47,7 +49,7 @@ async def process_place_bad(callback_query: types.CallbackQuery, redis_service: 
     user_data = redis_service.get_user_data(user_id)
     user_categories = user_data.get("selected_categories", [])
     user_wishes = user_data.get("selected_wishes", [])
-    user_filters=user["filters"] if user else []
+    user_filters = user["filters"] if user else []
     places = user_data.get("places", [])
     index = user_data.get("current_place_index", 0)
 
@@ -57,16 +59,24 @@ async def process_place_bad(callback_query: types.CallbackQuery, redis_service: 
 
     place = places[index]
 
-    # Формируем текст с рейтингом
+    # Формируем текст с рейтингом и получаем ID места для возможности удаления
     rating = place.get("rating")
     rating_text = f"⭐ {rating}/5" if rating else "⭐ Рейтинг не указан"
+    place_id = place["id"]
 
     # Получаем категории и пожелания места из базы данных
     categories_text, wishes_text, website = await db_service.get_categories_and_wishes(place)
 
     # Формируем текст
     place_text = generate_place_text(
-        place, website, rating_text, categories_text=categories_text, wishes_text=wishes_text, user_categories=user_categories, user_filters=user_filters, user_wishes=user_wishes
+        place,
+        website,
+        rating_text,
+        categories_text=categories_text,
+        wishes_text=wishes_text,
+        user_categories=user_categories,
+        user_filters=user_filters,
+        user_wishes=user_wishes,
     )
 
     photo_url = place.get("photo")
@@ -83,19 +93,53 @@ async def process_place_bad(callback_query: types.CallbackQuery, redis_service: 
                     photo=photo_url,
                     caption=place_text,
                     parse_mode="HTML",
+                    reply_markup=get_moders_chat_del_keyboard(place_id),
                 )
             else:
                 # Если текст слишком длинный
                 await callback_query.bot.send_photo(chat_id=MODERATORS_CHAT_ID, photo=photo_url)
-                await callback_query.bot.send_message(chat_id=MODERATORS_CHAT_ID, text=place_text, parse_mode="HTML")
+                await callback_query.bot.send_message(
+                    chat_id=MODERATORS_CHAT_ID,
+                    text=place_text,
+                    parse_mode="HTML",
+                    reply_markup=get_moders_chat_del_keyboard(place_id),
+                )
         else:
-            await callback_query.bot.send_message(chat_id=MODERATORS_CHAT_ID, text=place_text, parse_mode="HTML")
+            await callback_query.bot.send_message(
+                chat_id=MODERATORS_CHAT_ID,
+                text=place_text,
+                parse_mode="HTML",
+                reply_markup=get_moders_chat_del_keyboard(place_id),
+            )
     except Exception as e:
         logger.error(f"Ошибка отправки в чат модерации: {e}")
         await callback_query.bot.send_message(chat_id=MODERATORS_CHAT_ID, text=place_text, parse_mode="HTML")
 
     # Помечаем место как просмотренное
     await db_service.mark_place_as_viewed(user_id, place.get("name"))
+
+
+@base_router.callback_query(F.data.startswith("mod_chat_del"))
+async def mod_chat_del(callback: types.CallbackQuery):
+    place_id = int(callback.data.split(":")[1])
+    logger.info(f"mod_chat_del: {place_id}")
+    await callback.message.answer(
+        "Точно удалить место?", reply_markup=get_moders_caht_del_approvement_keyboard(place_id)
+    )
+    await callback.answer()
+
+
+@base_router.callback_query(F.data.startswith("approve_del"))
+async def mod_chat_del_approved(callback: types.CallbackQuery, db_service: DbService):
+    place_id = int(callback.data.split(":")[1])
+    try:
+        await db_service.delete_place(place_id)
+        text = "Место удалено из базы данных"
+    except Exception as e:
+        logger.error(f"Error while deleting place {place_id=}: {e}")
+        text = "Произошла ошибка при удалении места"
+    await callback.message.answer(text, show_alert=True)
+    await callback.answer()
 
 
 @base_router.callback_query(F.data == "reset_location")
@@ -625,14 +669,14 @@ async def search_filter(
         )
 
     # Устанавливаем состояние ожидания названия фильтра
-    await state.set_state(FilterStates.waiting_for_filter_name)
+    await state.set_state(FilterState.waiting_for_filter_name)
     await callback.answer()
 
     # Обновляем время последней активности
     await db_service.update_user_activity(callback.from_user.id)
 
 
-@base_router.message(FilterStates.waiting_for_filter_name)
+@base_router.message(FilterState.waiting_for_filter_name)
 async def process_filter_search(
     message: types.Message, state: FSMContext, db_service: DbService, redis_service: RedisService, bot: Bot
 ):
@@ -1145,7 +1189,7 @@ async def navigate_places(callback: types.CallbackQuery, redis_service: RedisSer
 
 
 # Обработчик отмены состояния фильтра
-@base_router.callback_query(F.data == "show_filters_main", FilterStates.waiting_for_filter_name)
+@base_router.callback_query(F.data == "show_filters_main", FilterState.waiting_for_filter_name)
 async def cancel_filter_search(
     callback: types.CallbackQuery, state: FSMContext, db_service: DbService, redis_service: RedisService, bot: Bot
 ):
