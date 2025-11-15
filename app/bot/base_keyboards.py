@@ -1,9 +1,9 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.msgs_text import AVAILABLE_FILTERS, MsgsText
+from app.services.coordinator import Coordinator
 from app.services.db_service import DbService
 from app.services.redis_service import RedisService
-from app.services.coordinator import Coordinator
 
 
 async def get_filters_keyboard(user_id: int, db_service: DbService, page: int = 0) -> InlineKeyboardMarkup:
@@ -57,6 +57,7 @@ async def get_filters_keyboard(user_id: int, db_service: DbService, page: int = 
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
 async def get_guide_keyboard(page: int = 0):
     total_pages = 2
     buttons = []
@@ -64,35 +65,23 @@ async def get_guide_keyboard(page: int = 0):
     nav_row = []
 
     if page > 0:
-        nav_row.append(
-            InlineKeyboardButton(
-                text="⬅️ Назад",
-                callback_data=f"guide_page_{page-1}"
-            )
-        )
+        nav_row.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"guide_page_{page - 1}"))
 
     if page < total_pages:
-        nav_row.append(
-            InlineKeyboardButton(
-                text="➡️ Вперёд",
-                callback_data=f"guide_page_{page+1}"
-            )
-        )
+        nav_row.append(InlineKeyboardButton(text="➡️ Вперёд", callback_data=f"guide_page_{page + 1}"))
 
     if nav_row:
         buttons.append(nav_row)
 
     if page == total_pages:
-        buttons.append([
-            InlineKeyboardButton(
-                text="Завершить",
-                callback_data="main_menu"
-            )
-        ])
+        buttons.append([InlineKeyboardButton(text="Завершить", callback_data="main_menu")])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: RedisService, user_id: int, page: int = 0, like: bool = True) -> InlineKeyboardMarkup:
+
+async def get_like_dislike_keyboard(
+    coordinator: Coordinator, redis_service: RedisService, user_id: int, page: int = 0, like: bool = True
+) -> InlineKeyboardMarkup:
     if like:
         buttons = []
 
@@ -104,7 +93,7 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
         buttons = []
         for i in range(0, len(liked_places), 2):
             row = []
-            for j, place in enumerate(liked_places[i:i+2], start=i):
+            for j, place in enumerate(liked_places[i : i + 2], start=i):
                 row.append(
                     InlineKeyboardButton(
                         text=str(j % 8 + 1),
@@ -112,7 +101,7 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
                     )
                 )
             buttons.append(row)
-        
+
         total_liked = redis_service.get_liked_disliked_count(user_id)
         total_pages = (total_liked + items_per_page - 1) // items_per_page
         nav_buttons = []
@@ -143,7 +132,7 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
                     )
                 )
             buttons.append(row)
-        
+
         total_disliked = redis_service.get_liked_disliked_count(user_id, False)
         total_pages = (total_disliked + items_per_page - 1) // items_per_page
         print(total_pages)
@@ -161,25 +150,28 @@ async def get_like_dislike_keyboard(coordinator: Coordinator, redis_service: Red
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
 def liked_keyboard(page: int, place_index: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Убрать", callback_data=f"delete_from_liked_{8*page+place_index}"),
-                InlineKeyboardButton(text="Назад", callback_data=f"like_page_{page}")
+                InlineKeyboardButton(text="Убрать", callback_data=f"delete_from_liked_{8 * page + place_index}"),
+                InlineKeyboardButton(text="Назад", callback_data=f"like_page_{page}"),
             ]
         ]
     )
+
 
 def disliked_keyboard(page: int, place_index: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Убрать", callback_data=f"delete_from_disliked_{8*page+place_index}"),
-                InlineKeyboardButton(text="Назад", callback_data=f"dislike_page_{page}")
+                InlineKeyboardButton(text="Убрать", callback_data=f"delete_from_disliked_{8 * page + place_index}"),
+                InlineKeyboardButton(text="Назад", callback_data=f"dislike_page_{page}"),
             ]
         ]
     )
+
 
 def get_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -195,7 +187,7 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="🗺️ Геолокация", callback_data="show_geolocation_main"),
                 InlineKeyboardButton(text="❓ Помощь", callback_data="show_help_main"),
-            ]
+            ],
         ]
     )
 
@@ -272,7 +264,7 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_back_to_main_keyboard(help: bool = False) -> InlineKeyboardMarkup:
-    inline_keyboard=[[InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")]]
+    inline_keyboard = [[InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")]]
     if help:
         inline_keyboard[0].append(InlineKeyboardButton(text="Обучалка", callback_data="guide_page_0"))
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)

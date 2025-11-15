@@ -294,8 +294,8 @@ class DbRepo:
                 WHERE 
                     (up.viewed = FALSE AND up.favourite = FALSE)
                 OR up.place_id IS NULL;
-                """, 
-                user_id
+                """,
+                user_id,
             )
             return res
 
@@ -331,22 +331,28 @@ class DbRepo:
 
     async def get_liked_places(self, user_id: int):
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT p.*
                 FROM users_places up
                 JOIN places p ON up.place_id = p.id
                 WHERE up.user_id = $1 AND up.favourite = TRUE
-            """, user_id)
+            """,
+                user_id,
+            )
             return [row for row in rows]
 
     async def get_disliked_places(self, user_id: int):
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT p.*
                 FROM users_places up
                 JOIN places p ON up.place_id = p.id
                 WHERE up.user_id = $1 AND up.favourite = FALSE
-            """, user_id)
+            """,
+                user_id,
+            )
             return [row for row in rows]
 
     async def save_user_places_relation(
@@ -412,9 +418,9 @@ class DbRepo:
             )
 
     async def mark_place_as_liked(self, user_id: int, place_name: str) -> None:
-            async with self._pool.acquire() as conn:
-                await conn.execute(
-                    """
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
                     UPDATE users_places AS up
                     SET favourite = TRUE
                     FROM places
@@ -422,10 +428,10 @@ class DbRepo:
                     AND places.name = $1
                     AND up.user_id = $2
                     """,
-                    place_name,
-                    user_id,
-                )
-    
+                place_name,
+                user_id,
+            )
+
     async def mark_place_as_disliked(self, user_id: int, place_name: str) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(
@@ -440,7 +446,7 @@ class DbRepo:
                 place_name,
                 user_id,
             )
-    
+
     async def delete_liked_disliked(self, user_id: int, place_name: str) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(

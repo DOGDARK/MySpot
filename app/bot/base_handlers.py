@@ -8,11 +8,14 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.base_keyboards import (
+    disliked_keyboard,
     get_back_to_filters_keyboard,
     get_back_to_main_keyboard,
     get_categories_keyboard,
     get_change_keyboard,
     get_filters_keyboard,
+    get_guide_keyboard,
+    get_like_dislike_keyboard,
     get_main_keyboard,
     get_moders_caht_del_approvement_keyboard,
     get_moders_chat_del_keyboard,
@@ -20,10 +23,7 @@ from app.bot.base_keyboards import (
     get_update_keyboard,
     get_view_places_keyboard,
     get_wishes_keyboard,
-    get_like_dislike_keyboard,
     liked_keyboard,
-    disliked_keyboard,
-    get_guide_keyboard
 )
 from app.bot.constants import Constants
 from app.bot.msgs_text import AVAILABLE_FILTERS, MsgsText
@@ -200,24 +200,43 @@ async def reset_viewed(callback: types.CallbackQuery, db_service: DbService):
     await db_service.reset_viewed(user_id)
     await callback.answer()
 
+
 @base_router.callback_query(F.data == "like_place")
-async def liked_place(callback: types.CallbackQuery, coordinator: Coordinator,
-                      redis_service: RedisService, db_service: DbService, bot: Bot):
+async def liked_place(
+    callback: types.CallbackQuery,
+    coordinator: Coordinator,
+    redis_service: RedisService,
+    db_service: DbService,
+    bot: Bot,
+):
     user_id = callback.from_user.id
     await coordinator.like_place(user_id)
-    new_callback = callback.model_copy(update={'data': 'place_next'})
+    new_callback = callback.model_copy(update={"data": "place_next"})
     await navigate_places(new_callback, redis_service, db_service, bot)
 
+
 @base_router.callback_query(F.data == "dislike_place")
-async def disliked_place(callback: types.CallbackQuery, coordinator: Coordinator,
-                      redis_service: RedisService, db_service: DbService, bot: Bot):
+async def disliked_place(
+    callback: types.CallbackQuery,
+    coordinator: Coordinator,
+    redis_service: RedisService,
+    db_service: DbService,
+    bot: Bot,
+):
     user_id = callback.from_user.id
     await coordinator.dislike_place(user_id)
-    new_callback = callback.model_copy(update={'data': 'place_next'})
+    new_callback = callback.model_copy(update={"data": "place_next"})
     await navigate_places(new_callback, redis_service, db_service, bot)
-    
+
+
 @base_router.callback_query(F.data == "show_like")
-async def like_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+async def like_main(
+    callback: types.CallbackQuery,
+    db_service: DbService,
+    redis_service: RedisService,
+    bot: Bot,
+    coordinator: Coordinator,
+):
     user_id = callback.from_user.id
     await coordinator.move_to_redis_liked_disliked_places(user_id)
 
@@ -241,21 +260,25 @@ async def like_main(callback: types.CallbackQuery, db_service: DbService, redis_
         )
 
     await callback.answer()
-    
-    await db_service.update_user_activity(callback.from_user.id)
-    
 
+    await db_service.update_user_activity(callback.from_user.id)
 
 
 @base_router.callback_query(F.data == "show_dislike")
-async def dislike_main(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+async def dislike_main(
+    callback: types.CallbackQuery,
+    db_service: DbService,
+    redis_service: RedisService,
+    bot: Bot,
+    coordinator: Coordinator,
+):
     user_id = callback.from_user.id
     await coordinator.move_to_redis_liked_disliked_places(user_id, False)
 
     text = MsgsText.DISLIKES.value
     added_text = await coordinator.show_liked_disliked(user_id, 0, 7, False)
     text += added_text
-    
+
     try:
         await callback.message.edit_text(
             text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, 0, False)
@@ -273,19 +296,23 @@ async def dislike_main(callback: types.CallbackQuery, db_service: DbService, red
 
     await callback.answer()
     await db_service.update_user_activity(callback.from_user.id)
-    
-
 
 
 @base_router.callback_query(F.data.startswith("like_page_"))
-async def handle_like_page(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+async def handle_like_page(
+    callback: types.CallbackQuery,
+    db_service: DbService,
+    redis_service: RedisService,
+    bot: Bot,
+    coordinator: Coordinator,
+):
     user_id = callback.from_user.id
     page = int(callback.data.split("_")[2])
 
-    start = 8*page
+    start = 8 * page
 
     text = MsgsText.LIKES.value
-    added_text = await coordinator.show_liked_disliked(user_id, start, start+7)
+    added_text = await coordinator.show_liked_disliked(user_id, start, start + 7)
     text += added_text
 
     try:
@@ -309,16 +336,22 @@ async def handle_like_page(callback: types.CallbackQuery, db_service: DbService,
 
 
 @base_router.callback_query(F.data.startswith("dislike_page_"))
-async def handle_dislike_page(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+async def handle_dislike_page(
+    callback: types.CallbackQuery,
+    db_service: DbService,
+    redis_service: RedisService,
+    bot: Bot,
+    coordinator: Coordinator,
+):
     user_id = callback.from_user.id
     page = int(callback.data.split("_")[2])
 
-    start = 8*page
+    start = 8 * page
 
     text = MsgsText.DISLIKES.value
-    added_text = await coordinator.show_liked_disliked(user_id, start, start+7, False)
+    added_text = await coordinator.show_liked_disliked(user_id, start, start + 7, False)
     text += added_text
-    
+
     try:
         await callback.message.edit_text(
             text=text, reply_markup=await get_like_dislike_keyboard(coordinator, redis_service, user_id, page, False)
@@ -352,11 +385,11 @@ async def handle_liked_selection(
     places_per_page = 8
     start_idx = current_page * places_per_page
 
-    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx+places_per_page)
+    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx + places_per_page)
 
     place = places[place_index]
 
-     # Формируем текст с рейтингом
+    # Формируем текст с рейтингом
     rating = place.get("rating")
     rating_text = f"⭐ {rating}/5" if rating else "⭐ Рейтинг не указан"
 
@@ -394,8 +427,13 @@ async def handle_liked_selection(
     else:
         # Если фото нет или ссылка невалидна, отправляем без фото
         await update_or_send_message(
-            chat_id=chat_id, text=place_text, bot=bot, redis_service=redis_service, reply_markup=liked_keyboard(current_page, place_index)
+            chat_id=chat_id,
+            text=place_text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=liked_keyboard(current_page, place_index),
         )
+
 
 @base_router.callback_query(F.data.startswith("disliked_"))
 async def handle_disliked_selection(
@@ -410,11 +448,11 @@ async def handle_disliked_selection(
     places_per_page = 8
     start_idx = current_page * places_per_page
 
-    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx+places_per_page, False)
+    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx + places_per_page, False)
 
     place = places[place_index]
 
-     # Формируем текст с рейтингом
+    # Формируем текст с рейтингом
     rating = place.get("rating")
     rating_text = f"⭐ {rating}/5" if rating else "⭐ Рейтинг не указан"
 
@@ -452,32 +490,51 @@ async def handle_disliked_selection(
     else:
         # Если фото нет или ссылка невалидна, отправляем без фото
         await update_or_send_message(
-            chat_id=chat_id, text=place_text, bot=bot, redis_service=redis_service, reply_markup=disliked_keyboard(current_page, place_index)
+            chat_id=chat_id,
+            text=place_text,
+            bot=bot,
+            redis_service=redis_service,
+            reply_markup=disliked_keyboard(current_page, place_index),
         )
 
+
 @base_router.callback_query(F.data.startswith("delete_from_liked_"))
-async def delete_from_liked(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+async def delete_from_liked(
+    callback: types.CallbackQuery,
+    db_service: DbService,
+    redis_service: RedisService,
+    bot: Bot,
+    coordinator: Coordinator,
+):
     user_id = callback.from_user.id
 
-    place_index = int(callback.data.split('_')[3])
+    place_index = int(callback.data.split("_")[3])
 
     places = redis_service.get_liked_disliked(user_id, place_index, place_index)
     place = places[0]
-    place_name = place['name']
+    place_name = place["name"]
     await coordinator.delete_liked_disliked(user_id, place_name)
     await like_main(callback, db_service, redis_service, bot, coordinator)
 
+
 @base_router.callback_query(F.data.startswith("delete_from_disliked_"))
-async def delete_from_disliked(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot, coordinator: Coordinator):
+async def delete_from_disliked(
+    callback: types.CallbackQuery,
+    db_service: DbService,
+    redis_service: RedisService,
+    bot: Bot,
+    coordinator: Coordinator,
+):
     user_id = callback.from_user.id
 
-    place_index = int(callback.data.split('_')[3])
+    place_index = int(callback.data.split("_")[3])
 
     places = redis_service.get_liked_disliked(user_id, place_index, place_index, False)
     place = places[0]
-    place_name = place['name']
+    place_name = place["name"]
     await coordinator.delete_liked_disliked(user_id, place_name, False)
     await dislike_main(callback, db_service, redis_service, bot, coordinator)
+
 
 @base_router.callback_query(F.data == "reset_all_filters")
 async def reset_all_filters(
@@ -601,7 +658,7 @@ async def cmd_start(
         # Сначала отправляем приветственное сообщение
         await update_or_send_message(
             chat_id=message.chat.id,
-            text = random.choice(MsgsText.WELCOME.value),
+            text=random.choice(MsgsText.WELCOME.value),
             bot=bot,
             redis_service=redis_service,
             reply_markup=get_main_keyboard(),
@@ -624,8 +681,8 @@ async def cmd_start(
             text=MsgsText.GUIDE.value[0],
             bot=bot,
             redis_service=redis_service,
-            reply_markup= await get_guide_keyboard(0),
-            gif=CATEGORIES_GIF
+            reply_markup=await get_guide_keyboard(0),
+            gif=CATEGORIES_GIF,
         )
 
     # Потом удаляем сообщение пользователя с командой start
@@ -654,13 +711,13 @@ async def handle_guide_page(
         gif = GEOLOCATION_GIF
 
     await update_or_send_message(
-            chat_id=chat_id,
-            text=text,
-            bot=bot,
-            redis_service=redis_service,
-            reply_markup= await get_guide_keyboard(page),
-            gif=gif,
-        )
+        chat_id=chat_id,
+        text=text,
+        bot=bot,
+        redis_service=redis_service,
+        reply_markup=await get_guide_keyboard(page),
+        gif=gif,
+    )
 
     await callback.answer()
 
@@ -1457,7 +1514,7 @@ async def back_to_main_menu(
 
     await update_or_send_message(
         chat_id=chat_id,
-        text = random.choice(MsgsText.WELCOME.value),
+        text=random.choice(MsgsText.WELCOME.value),
         bot=bot,
         redis_service=redis_service,
         reply_markup=get_main_keyboard(),

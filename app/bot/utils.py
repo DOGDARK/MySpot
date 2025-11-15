@@ -3,7 +3,6 @@ from math import atan2, cos, radians, sin, sqrt
 from typing import Any
 
 from aiogram import Bot, types
-from aiogram.types import InlineKeyboardMarkup, FSInputFile
 
 from app.bot.base_keyboards import get_places_keyboard
 from app.services import redis_service
@@ -23,7 +22,13 @@ async def delete_user_message(message: types.Message):
 
 
 async def update_or_send_message(
-    chat_id: int, text: str, bot: Bot, redis_service: RedisService, reply_markup=None, photo_url: str = None, gif: str = None
+    chat_id: int,
+    text: str,
+    bot: Bot,
+    redis_service: RedisService,
+    reply_markup=None,
+    photo_url: str = None,
+    gif: str = None,
 ):
     """Обновить существующее сообщение или отправить новое"""
     last_msg = redis_service.get_user_msg(chat_id)
@@ -224,9 +229,9 @@ def generate_place_text(
 <b>Фильтры места:</b> {place.get("categories", "Не указаны")}
 <b>Категории места:</b> {categories_text}
 <b>Пожелания места:</b> {wishes_text}
-<b>Фильтры пользователя:</b> {user_filters}
-<b>Категории пользователя:</b> {user_categories}
-<b>Пожелания польтзователя:</b> {user_wishes}
+<b>Фильтры пользователя:</b> {", ".join(user_filters)}
+<b>Категории пользователя:</b> {", ".join(user_categories)}
+<b>Пожелания пользователя:</b> {", ".join(user_wishes)}
 <b>Рейтинг:</b> {rating}
 <b>Описание:</b> {place.get("description", "Описание отсутствует")}
 <b>Адрес:</b> {place.get("address", "Адрес не указан")}

@@ -397,28 +397,28 @@ class DbService:
             await self._repo.mark_place_as_liked(user_id, place_name)
         except Exception as e:
             logger.error(f"Error marking place as liked: {e}")
-    
+
     @async_log_decorator(logger)
     async def mark_place_as_disliked(self, user_id: int, place_name: str) -> None:
         try:
             await self._repo.mark_place_as_disliked(user_id, place_name)
         except Exception as e:
             logger.error(f"Error marking place as disliked: {e}")
-    
+
     @async_log_decorator(logger)
     async def get_liked_places(self, user_id: int):
         try:
             return await self._repo.get_liked_places(user_id)
         except Exception as e:
             logger.error(f"Error getting liked places: {e}")
-    
+
     @async_log_decorator(logger)
     async def get_disliked_places(self, user_id: int):
         try:
             return await self._repo.get_disliked_places(user_id)
         except Exception as e:
             logger.error(f"Error getting disliked places: {e}")
-    
+
     @async_log_decorator(logger)
     async def delete_liked_disliked(self, user_id: int, place_name: str):
         try:
