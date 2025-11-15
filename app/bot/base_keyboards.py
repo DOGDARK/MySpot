@@ -271,10 +271,11 @@ def get_places_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_back_to_main_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")]]
-    )
+def get_back_to_main_keyboard(help: bool = False) -> InlineKeyboardMarkup:
+    inline_keyboard=[[InlineKeyboardButton(text="↩️ Главное меню", callback_data="main_menu")]]
+    if help:
+        inline_keyboard[0].append(InlineKeyboardButton(text="Обучалка", callback_data="guide_page_0"))
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
 def get_update_keyboard() -> InlineKeyboardMarkup:

@@ -37,6 +37,9 @@ base_router = Router()
 
 MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
 START_IMG_PATH = "app/data/images/start_img.jpg"
+CATEGORIES_GIF = FSInputFile("app/data/images/categories.mp4")
+FILTERS_GIF = FSInputFile("app/data/images/filters.mp4")
+GEOLOCATION_GIF = FSInputFile("app/data/images/geolocation.mp4")
 
 
 # Состояния FSM
@@ -574,7 +577,7 @@ async def cmd_start(
             bot=bot,
             redis_service=redis_service,
             reply_markup= await get_guide_keyboard(0),
-            gif='app/data/images/categories.mp4'
+            gif=CATEGORIES_GIF
         )
 
     # Потом удаляем сообщение пользователя с командой start
@@ -584,26 +587,26 @@ async def cmd_start(
 @base_router.callback_query(F.data.startswith("guide_page_"))
 async def handle_guide_page(
     callback: types.CallbackQuery,
-    message: types.Message,
     db_service: DbService,
     redis_service: RedisService,
     bot: Bot,
 ):
     user_id = callback.from_user.id
+    chat_id = callback.message.chat.id
 
     page = int(callback.data.split("_")[2])
 
     text = MsgsText.GUIDE.value[page]
 
     if page == 0:
-        gif = 'app/data/images/categories.mp4'
+        gif = CATEGORIES_GIF
     elif page == 1:
-        gif = 'app/data/images/filters.mp4'
+        gif = FILTERS_GIF
     elif page == 2:
-        gif = 'app/data/images/geolocation.mp4'
+        gif = GEOLOCATION_GIF
 
     await update_or_send_message(
-            chat_id=message.chat.id,
+            chat_id=chat_id,
             text=text,
             bot=bot,
             redis_service=redis_service,
@@ -1204,7 +1207,7 @@ async def show_help_main(callback: types.CallbackQuery, db_service: DbService, r
             text=MsgsText.HELP_TEXT.value,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_back_to_main_keyboard(),
+            reply_markup=get_back_to_main_keyboard(help=True),
         )
 
     await callback.answer()
