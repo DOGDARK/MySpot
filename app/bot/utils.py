@@ -46,7 +46,6 @@ async def update_or_send_message(
                 except Exception as e:
                     logger.error(f"Error while deleting user msg, {e}")
             elif photo_url:
-                print(300)
                 # Если есть фото, отправляем новое сообщение с фото
                 message = await bot.send_photo(
                     chat_id=chat_id,
@@ -54,7 +53,6 @@ async def update_or_send_message(
                     caption=text,
                     reply_markup=reply_markup,
                 )
-                print(500)
                 # Удаляем старое сообщение
                 try:
                     await bot.delete_message(chat_id=chat_id, message_id=last_msg)
@@ -113,7 +111,6 @@ async def update_or_send_message(
                 except Exception as e:
                     logger.error(f"Error while deleting user msg, {e}")
             elif photo_url:
-                print(400)
                 message = await bot.send_photo(
                     chat_id=chat_id,
                     photo=photo_url,

@@ -135,7 +135,6 @@ async def get_like_dislike_keyboard(
 
         total_disliked = redis_service.get_liked_disliked_count(user_id, False)
         total_pages = (total_disliked + items_per_page - 1) // items_per_page
-        print(total_pages)
         nav_buttons = []
         if page > 0:
             nav_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dislike_page_{page - 1}"))

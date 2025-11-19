@@ -36,7 +36,6 @@ class RedisService:
 
     def delete_key(self, user_id: int, liked: bool = True) -> None:
         key = f"liked:{user_id}" if liked else f"disliked:{user_id}"
-        print("deleted")
         self._repo.delete_key(key)
 
     def get_liked_disliked(

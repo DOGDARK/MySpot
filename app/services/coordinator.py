@@ -59,7 +59,6 @@ class Coordinator:
 
     async def delete_liked_disliked(self, user_id: int, place_name: str, liked: bool = True):
         try:
-            print(self._redis_service.get_liked_disliked_count(user_id, liked))
             if self._redis_service.get_liked_disliked_count(user_id, liked) == 1:
                 self._redis_service.delete_key(user_id, liked)
             return await self._db_service.delete_liked_disliked(user_id, place_name)
