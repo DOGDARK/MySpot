@@ -7,7 +7,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.bot import constants
 from app.bot.base_keyboards import (
     disliked_keyboard,
     get_back_to_filters_keyboard,
@@ -39,9 +38,9 @@ base_router = Router()
 
 
 START_IMG_PATH = FSInputFile(Constants.START_IMG_PATH.value)
-CATEGORIES_GIF = FSInputFile(constants.CATEGORIES_GIF.value)
-FILTERS_GIF = FSInputFile(constants.FILTERS_GIF.value)
-GEOLOCATION_GIF = FSInputFile(constants.GEOLOCATION_GIF.value)
+CATEGORIES_GIF = FSInputFile(Constants.CATEGORIES_GIF.value)
+FILTERS_GIF = FSInputFile(Constants.FILTERS_GIF.value)
+GEOLOCATION_GIF = FSInputFile(Constants.GEOLOCATION_GIF.value)
 
 
 # Состояния FSM
@@ -680,6 +679,7 @@ async def cmd_start(
             bot=bot,
             redis_service=redis_service,
             reply_markup=get_back_to_main_keyboard(help=True),
+            photo_url=START_IMG_PATH,
         )
 
     # Потом удаляем сообщение пользователя с командой start
