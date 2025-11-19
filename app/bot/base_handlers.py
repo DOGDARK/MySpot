@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.bot import constants
 from app.bot.base_keyboards import (
     disliked_keyboard,
     get_back_to_filters_keyboard,
@@ -37,11 +38,10 @@ logger = logging.getLogger(__name__)
 base_router = Router()
 
 
-MODERATORS_CHAT_ID = Settings.MODERATORS_CHAT_ID
-START_IMG_PATH = "app/data/images/start_img.jpg"
-CATEGORIES_GIF = FSInputFile("app/data/images/categories.mp4")
-FILTERS_GIF = FSInputFile("app/data/images/filters.mp4")
-GEOLOCATION_GIF = FSInputFile("app/data/images/geolocation.mp4")
+START_IMG_PATH = FSInputFile(Constants.START_IMG_PATH.value)
+CATEGORIES_GIF = FSInputFile(constants.CATEGORIES_GIF.value)
+FILTERS_GIF = FSInputFile(constants.FILTERS_GIF.value)
+GEOLOCATION_GIF = FSInputFile(constants.GEOLOCATION_GIF.value)
 
 
 # Состояния FSM
@@ -98,7 +98,7 @@ async def process_place_bad(callback_query: types.CallbackQuery, redis_service: 
         if photo_url and isinstance(photo_url, str) and photo_url.startswith(("http://", "https://")):
             if len(place_text) <= 1000:
                 await callback_query.bot.send_photo(
-                    chat_id=MODERATORS_CHAT_ID,
+                    chat_id=Settings.MODERATORS_CHAT_ID,
                     photo=photo_url,
                     caption=place_text,
                     parse_mode="HTML",
@@ -106,23 +106,23 @@ async def process_place_bad(callback_query: types.CallbackQuery, redis_service: 
                 )
             else:
                 # Если текст слишком длинный
-                await callback_query.bot.send_photo(chat_id=MODERATORS_CHAT_ID, photo=photo_url)
+                await callback_query.bot.send_photo(chat_id=Settings.MODERATORS_CHAT_ID, photo=photo_url)
                 await callback_query.bot.send_message(
-                    chat_id=MODERATORS_CHAT_ID,
+                    chat_id=Settings.MODERATORS_CHAT_ID,
                     text=place_text,
                     parse_mode="HTML",
                     reply_markup=get_moders_chat_del_keyboard(place_id),
                 )
         else:
             await callback_query.bot.send_message(
-                chat_id=MODERATORS_CHAT_ID,
+                chat_id=Settings.MODERATORS_CHAT_ID,
                 text=place_text,
                 parse_mode="HTML",
                 reply_markup=get_moders_chat_del_keyboard(place_id),
             )
     except Exception as e:
         logger.error(f"Ошибка отправки в чат модерации: {e}")
-        await callback_query.bot.send_message(chat_id=MODERATORS_CHAT_ID, text=place_text, parse_mode="HTML")
+        await callback_query.bot.send_message(chat_id=Settings.MODERATORS_CHAT_ID, text=place_text, parse_mode="HTML")
 
     # Помечаем место как просмотренное
     await db_service.mark_place_as_viewed(user_id, place.get("name"))
@@ -653,16 +653,14 @@ async def cmd_start(
             },
         )
 
-        photo = FSInputFile(START_IMG_PATH)
-
         # Сначала отправляем приветственное сообщение
         await update_or_send_message(
             chat_id=message.chat.id,
-            text=random.choice(MsgsText.WELCOME.value),
+            text=random.choice(MsgsText.WELCOME.value) + f"\n{MsgsText.WELCOME_SECOND_PART.value}",
             bot=bot,
             redis_service=redis_service,
             reply_markup=get_main_keyboard(),
-            photo_url=photo,
+            photo_url=START_IMG_PATH,
         )
 
     else:
@@ -678,11 +676,10 @@ async def cmd_start(
         )
         await update_or_send_message(
             chat_id=message.chat.id,
-            text=MsgsText.GUIDE.value[0],
+            text=random.choice(MsgsText.WELCOME.value),
             bot=bot,
             redis_service=redis_service,
-            reply_markup=await get_guide_keyboard(0),
-            gif=CATEGORIES_GIF,
+            reply_markup=get_back_to_main_keyboard(help=True),
         )
 
     # Потом удаляем сообщение пользователя с командой start
@@ -1508,17 +1505,15 @@ async def confirm_wishes(
 async def back_to_main_menu(
     callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService, bot: Bot
 ):
-    photo = FSInputFile(Constants.START_IMG_PATH.value)
-
     chat_id = callback.message.chat.id
 
     await update_or_send_message(
         chat_id=chat_id,
-        text=random.choice(MsgsText.WELCOME.value),
+        text=random.choice(MsgsText.WELCOME.value) + f"\n{MsgsText.WELCOME_SECOND_PART.value}",
         bot=bot,
         redis_service=redis_service,
         reply_markup=get_main_keyboard(),
-        photo_url=photo,
+        photo_url=START_IMG_PATH,
     )
     await callback.answer()
 
