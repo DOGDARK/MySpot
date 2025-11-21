@@ -517,7 +517,7 @@ class DbService:
         await self._repo.delete_place(place_id)
 
     def _filter_bad_places(self, rows: list[Record]) -> None:
-        for i, row in enumerate(rows):
-            if any(bad_word in row["name"].lower() for bad_word in Constants.BAD_PLACE_NAMES.value):
-                logger.info(f"Bad place: {row['name']}")
+        for i in range(len(rows) - 1, -1, -1):
+            if any(bad_word in rows[i]["name"].lower() for bad_word in Constants.BAD_PLACE_NAMES.value):
+                logger.info(f"Bad place: {rows[i]['name']}")
                 rows.pop(i)
