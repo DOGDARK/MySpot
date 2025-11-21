@@ -7,3 +7,4 @@ class Constants(Enum):
     CATEGORIES_GIF = "app/data/images/categories.mp4"
     FILTERS_GIF = "app/data/images/filters.mp4"
     GEOLOCATION_GIF = "app/data/images/geolocation.mp4"
+    BAD_PLACE_NAMES = ("аэроклуб", "лодочная станция", "водная база")

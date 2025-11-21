@@ -4,7 +4,9 @@ from random import randrange
 from typing import Any, Optional
 
 import pytz
+from asyncpg import Record
 
+from app.bot.constants import Constants
 from app.core.utils import async_log_decorator
 from app.repositories.db_repo import DbRepo
 
@@ -196,9 +198,12 @@ class DbService:
         """
 
         if not categories and not wishes and not user_filters:
-            return await self._repo.get_random_places()
+            places = await self._repo.get_random_places()
+            self._filter_bad_places(places)
+            return places
 
         places = await self._repo.get_places_data(user_id)
+        self._filter_bad_places(places)
 
         logger.info(f"[get_all_places] Загружено {len(places)} мест из БД")
 
@@ -510,3 +515,9 @@ class DbService:
 
     async def delete_place(self, place_id: int) -> None:
         await self._repo.delete_place(place_id)
+
+    def _filter_bad_places(self, rows: list[Record]) -> None:
+        for i, row in enumerate(rows):
+            if any(bad_word in row["name"].lower() for bad_word in Constants.BAD_PLACE_NAMES.value):
+                logger.info(f"Bad place: {row['name']}")
+                rows.pop(i)
