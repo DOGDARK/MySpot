@@ -77,12 +77,7 @@ async def create_notification_task(
 async def stats(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService) -> None:
     all_users_count = await db_service.get_users_count()
     daily_count = redis_service.get_daily_count()
-    text_part = "новых пользователей"
-    if daily_count % 10 == 1:
-        text_part = "новый пользователь"
-    elif daily_count % 10 in range(2, 5):
-        text_part = "новых пользователя"
-    text = f"Cегодня {daily_count} {text_part}\nВсего - {all_users_count}"
+    text = f"Cегодня {daily_count} новых пользователей\nВсего - {all_users_count}"
     await callback.message.answer(text)
     await callback.answer()
 

@@ -56,16 +56,10 @@ async def notify_users(
 
     logger.info(f"All users notified. Deleted: {del_count=}")
 
-    text_part = "пользователей заблокировали"
-    if del_count % 10 == 1:
-        text_part = "пользователь заблокировал"
-    elif del_count % 10 in range(2, 5):
-        text_part = "пользователя заблокировали"
-
     for admin_id in Constants.ADMIN_IDS.value:
         try:
             await bot.send_message(
-                admin_id, f"Рассылка доставлена.\n{del_count} {text_part} бота и были удалены из базы."
+                admin_id, f"Рассылка доставлена.\n{del_count} пользователей заблокировали бота и были удалены из базы."
             )
         except Exception as e:
             logger.error(f"Error while notifying admins: {e}")
