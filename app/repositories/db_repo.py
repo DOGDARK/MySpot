@@ -486,10 +486,8 @@ class DbRepo:
                 """
                 SELECT user_id, activity_date
                 FROM logs
-                WHERE activity_date AT TIME ZONE 'Europe/Moscow' >= 
-                CURRENT_DATE AT TIME ZONE 'Europe/Moscow'
-                AND activity_date AT TIME ZONE 'Europe/Moscow' < 
-                CURRENT_DATE AT TIME ZONE 'Europe/Moscow' + INTERVAL '1 day'
+                WHERE DATE(activity_date AT TIME ZONE 'Europe/Moscow') = 
+                DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')
                 ORDER BY activity_date ASC
                 """
             )
