@@ -43,7 +43,8 @@ class DbRepo:
 
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
-                    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                     activity_date TIMESTAMPTZ,
                     viewed_places_count INTEGER DEFAULT 0,
                     has_geolocation BOOLEAN DEFAULT FALSE,
