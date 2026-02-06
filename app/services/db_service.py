@@ -131,6 +131,11 @@ class DbService:
                 current_last_buttons = []
                 total_activities = result[1] + 1 if result[1] else 1
 
+                has_filt_cat_wish = await self._repo.get_filt_cat_wish(user_id)
+                filters = True if last_button=="confirm_filters" else has_filt_cat_wish[0]
+                categories = True if last_button=="confirm_categories" else has_filt_cat_wish[1]
+                wishes = True if last_button=="confirm_wishes" else has_filt_cat_wish[2]
+
                 if result[0]:
                     try:
                         current_last_buttons = json.loads(result[0])
@@ -154,16 +159,25 @@ class DbService:
                     has_geolocation,
                     json.dumps(current_last_buttons),
                     total_activities,
+                    filters,
+                    categories,
+                    wishes,
                 )
 
             else:
                 # Создаем новую запись
                 last_buttons = [last_button] if last_button else []
+                filters = True if last_button=="confirm_filters" else False
+                categories = True if last_button=="confirm_categories" else False
+                wishes = True if last_button=="confirm_wishes" else False
                 await self._repo.create_user_log(
                     user_id,
                     viewed_places_count,
                     has_geolocation,
                     json.dumps(last_buttons),
+                    filters,
+                    categories,
+                    wishes,
                 )
 
         except Exception as e:
@@ -505,6 +519,7 @@ class DbService:
             res += f"- Пользователь с id {r['user_id']} был активен {activity_date} по Москве"
             if i != len(rows) - 1:
                 res += "\n"
+            res += f"Всего было активно {len(res)}"
         return res
 
     async def delete_user(self, user_id: int) -> None:
@@ -521,3 +536,36 @@ class DbService:
             if any(bad_word in rows[i]["name"].lower() for bad_word in Constants.BAD_PLACE_NAMES.value):
                 logger.info(f"Bad place: {rows[i]['name']}")
                 rows.pop(i)
+
+    async def deleted_stats(self) -> str:
+        all_stats = await self._repo.get_deleted_stats()
+        if all_stats:
+            places_total = 0
+            activities_total = 0
+            geolocation = 0
+            filters = 0
+            categories = 0
+            wishes = 0
+            deleted_total = len(all_stats)
+            for row in all_stats:
+                places_total += row[0]
+                activities_total += row[2]
+                if row[1]:
+                    geolocation += 1
+                if row[3]:
+                    filters += 1
+                if row[4]:
+                    categories += 1
+                if row[5]:
+                    wishes += 1
+            text = f"""
+Всего {deleted_total} пользователей заблокировали бота
+Среднее количество просмотренных мест: {places_total / deleted_total}
+Среднее количество действий: {activities_total / deleted_total}
+Сколько человек настроило фильтры: {(filters / deleted_total * 100):.2f}% ({filters})
+Сколько человек настроило категории: {(categories / deleted_total * 100):.2f}% ({categories})
+Сколько человек настроили пожелания: {(wishes / deleted_total * 100):.2f}% ({wishes})
+            """
+        else:
+            text = "Пусто)"
+        return text

@@ -10,7 +10,12 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="🕛 Посмотреть дневную статистику", callback_data="stats"),
             ],
-            [InlineKeyboardButton(text="🧾 Посмотреть активных пользователей за сегодня", callback_data="activity")],
+            [
+                InlineKeyboardButton(text="🧾 Посмотреть активных пользователей за сегодня", callback_data="activity")
+            ],
+            [
+                InlineKeyboardButton(text="Статистика ушедших пользователей", callback_data="deleted_stats")
+            ]
         ]
     )
 

@@ -49,7 +49,10 @@ class DbRepo:
                     viewed_places_count INTEGER DEFAULT 0,
                     has_geolocation BOOLEAN DEFAULT FALSE,
                     last_buttons TEXT,
-                    total_activities INTEGER DEFAULT 1
+                    total_activities INTEGER DEFAULT 1,
+                    filters BOOLEAN DEFAULT FALSE,
+                    categories BOOLEAN DEFAULT FALSE,
+                    wishes BOOLEAN DEFAULT FALSE
                 )
                 """)
 
@@ -196,6 +199,13 @@ class DbRepo:
                 "SELECT last_buttons, total_activities FROM logs WHERE user_id = $1",
                 user_id,
             )
+    
+    async def get_filt_cat_wish(self, user_id: int) -> asyncpg.Record:
+        async with self._pool.acquire() as conn:
+            return await conn.fetchrow(
+                "SELECT filters, categories, wishes FROM logs WHERE user_id = $1",
+                user_id,
+            )
 
     async def update_logs(
         self,
@@ -204,6 +214,9 @@ class DbRepo:
         has_geolocation: bool,
         last_buttons: str,
         total_activities: int,
+        filters: bool,
+        categories: bool,
+        wishes: bool,
     ) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(
@@ -213,14 +226,20 @@ class DbRepo:
                     viewed_places_count = $2, 
                     has_geolocation = $3, 
                     last_buttons = $4,
-                    total_activities = $5
-                WHERE user_id = $6
+                    total_activities = $5,
+                    filters = $6,
+                    categories = $7,
+                    wishes = $8
+                WHERE user_id = $9
                 """,
                 datetime.now(pytz.utc),
                 viewed_places_count,
                 has_geolocation,
                 last_buttons,
                 total_activities,
+                filters,
+                categories,
+                wishes,
                 user_id,
             )
 
@@ -238,6 +257,9 @@ class DbRepo:
         viewed_places_count: int,
         has_geolocation: bool,
         last_buttons: str,
+        filters: bool,
+        categories: bool,
+        wishes: bool
     ) -> None:
         async with self._pool.acquire() as conn:
             (
@@ -249,15 +271,21 @@ class DbRepo:
                 viewed_places_count, 
                 has_geolocation, 
                 last_buttons, 
-                total_activities
+                total_activities,
+                filters,
+                categories,
+                wishes
                 )
-                VALUES ($1, $2, $3, $4, $5, 1)
+                VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8)
                 """,
                     user_id,
                     datetime.now(pytz.utc),
                     viewed_places_count,
                     has_geolocation,
                     last_buttons,
+                    filters,
+                    categories,
+                    wishes,
                 ),
             )
 
@@ -500,3 +528,13 @@ class DbRepo:
     async def delete_place(self, place_id: int) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute("DELETE FROM places WHERE id = $1", place_id)
+
+    async def get_deleted_stats(self) -> list[asyncpg.Record]:
+        async with self._pool.acquire() as conn:
+            return await conn.fetch(
+                """
+                SELECT viewed_places_count, has_geolocation, total_activities, filters, categories, wishes
+                FROM logs
+                WHERE user_id IS NULL;
+                """
+            )

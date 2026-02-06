@@ -87,3 +87,9 @@ async def activity(callback: types.CallbackQuery, db_service: DbService) -> None
     ans = await db_service.show_active_today_users()
     await callback.message.answer(text=ans)
     await callback.answer()
+
+@admin_router.callback_query(F.data == "deleted_stats")
+async def deleted_stats(callback: types.CallbackQuery, db_service: DbService) -> None:
+    ans = await db_service.deleted_stats()
+    await callback.message.answer(ans)
+    await callback.answer()
