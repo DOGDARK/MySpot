@@ -88,7 +88,7 @@ async def get_like_dislike_keyboard(
         items_per_page = 8
         start_idx = page * items_per_page
         end_idx = start_idx + items_per_page - 1
-        liked_places = redis_service.get_liked_disliked(user_id, start_idx, end_idx)
+        liked_places = await redis_service.get_liked_disliked(user_id, start_idx, end_idx)
 
         buttons = []
         for i in range(0, len(liked_places), 2):
@@ -102,7 +102,7 @@ async def get_like_dislike_keyboard(
                 )
             buttons.append(row)
 
-        total_liked = redis_service.get_liked_disliked_count(user_id)
+        total_liked = await redis_service.get_liked_disliked_count(user_id)
         total_pages = (total_liked + items_per_page - 1) // items_per_page
         nav_buttons = []
         if page > 0:
@@ -119,7 +119,7 @@ async def get_like_dislike_keyboard(
         items_per_page = 8
         start_idx = page * items_per_page
         end_idx = start_idx + items_per_page - 1
-        disliked_places = redis_service.get_liked_disliked(user_id, start_idx, end_idx, False)
+        disliked_places = await redis_service.get_liked_disliked(user_id, start_idx, end_idx, False)
 
         for i in range(0, len(disliked_places), 2):
             row = []
@@ -133,7 +133,7 @@ async def get_like_dislike_keyboard(
                 )
             buttons.append(row)
 
-        total_disliked = redis_service.get_liked_disliked_count(user_id, False)
+        total_disliked = await redis_service.get_liked_disliked_count(user_id, False)
         total_pages = (total_disliked + items_per_page - 1) // items_per_page
         nav_buttons = []
         if page > 0:
@@ -205,8 +205,8 @@ def get_reset_geolocation_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_categories_keyboard(user_id: int, redis_service: RedisService) -> InlineKeyboardMarkup:
-    selected_categories = redis_service.get_user_data(user_id).get("selected_categories", [])
+async def get_categories_keyboard(user_id: int, redis_service: RedisService) -> InlineKeyboardMarkup:
+    selected_categories = (await redis_service.get_user_data(user_id)).get("selected_categories", [])
     buttons = []
 
     categories = [(category_type, category_type) for category_type in MsgsText.CATEGORIES_TYPES.value]
@@ -224,8 +224,8 @@ def get_categories_keyboard(user_id: int, redis_service: RedisService) -> Inline
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_wishes_keyboard(user_id: int, redis_service: RedisService) -> InlineKeyboardMarkup:
-    selected_wishes = redis_service.get_user_data(user_id).get("selected_wishes", [])
+async def get_wishes_keyboard(user_id: int, redis_service: RedisService) -> InlineKeyboardMarkup:
+    selected_wishes = (await redis_service.get_user_data(user_id)).get("selected_wishes", [])
     buttons = []
 
     wishes = [(wish_type, wish_type) for wish_type in MsgsText.WISHES_TYPES.value]

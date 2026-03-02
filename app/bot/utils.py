@@ -31,7 +31,7 @@ async def update_or_send_message(
     gif: str = None,
 ):
     """Обновить существующее сообщение или отправить новое"""
-    last_msg = redis_service.get_user_msg(chat_id)
+    last_msg = await redis_service.get_user_msg(chat_id)
     if last_msg:
         try:
             if gif:
@@ -77,7 +77,7 @@ async def update_or_send_message(
                     except Exception as e:
                         logger.error(f"Error while deleting user msg, {e}")
 
-            redis_service.set_user_msg(chat_id, message.message_id)
+            await redis_service.set_user_msg(chat_id, message.message_id)
             return message.message_id
         except Exception as e:
             logger.error(f"Error in update_or_send_message: {e}")
@@ -92,7 +92,7 @@ async def update_or_send_message(
                     )
                 else:
                     message = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
-                redis_service.set_user_msg(chat_id, message.message_id)
+                await redis_service.set_user_msg(chat_id, message.message_id)
                 return message.message_id
             except Exception as e2:
                 logger.error(f"Error sending new message: {e2}")
@@ -119,7 +119,7 @@ async def update_or_send_message(
                 )
             else:
                 message = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
-            redis_service.set_user_msg(chat_id, message.message_id)
+            await redis_service.set_user_msg(chat_id, message.message_id)
             return message.message_id
         except Exception as e:
             logger.error(f"Error sending message: {e}")
@@ -129,7 +129,7 @@ async def update_or_send_message(
 async def show_place(
     user_id: int, chat_id: int, index: int, bot: Bot, db_service: DbService, redis_service: redis_service
 ):
-    places = redis_service.get_user_data(user_id).get("places", [])
+    places = (await redis_service.get_user_data(user_id)).get("places", [])
 
     if not places or index >= len(places):
         return

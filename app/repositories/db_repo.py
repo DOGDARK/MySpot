@@ -446,7 +446,7 @@ class DbRepo:
                 user_id,
             )
 
-    async def mark_place_as_liked(self, user_id: int, place_name: str) -> None:
+    async def mark_place_as_liked(self, user_id: int, place_name: str, place_address: str) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """
@@ -456,12 +456,14 @@ class DbRepo:
                     WHERE up.place_id = places.id
                     AND places.name = $1
                     AND up.user_id = $2
+                    AND places.address = $3
                     """,
                 place_name,
                 user_id,
+                place_address,
             )
 
-    async def mark_place_as_disliked(self, user_id: int, place_name: str) -> None:
+    async def mark_place_as_disliked(self, user_id: int, place_name: str, place_address: str) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """
@@ -471,9 +473,11 @@ class DbRepo:
                 WHERE up.place_id = places.id
                 AND places.name = $1
                 AND up.user_id = $2
+                AND places.address = $3
                 """,
                 place_name,
                 user_id,
+                place_address,
             )
 
     async def delete_liked_disliked(self, user_id: int, place_name: str) -> None:

@@ -63,7 +63,7 @@ async def main():
 
     finally:
         await db_service.close_db()
-        redis_service.close_redis()
+        await redis_service.close_redis()
 
 
 if __name__ == "__main__":

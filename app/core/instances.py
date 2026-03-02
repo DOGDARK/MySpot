@@ -4,7 +4,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from redis import Redis
+from redis.asyncio import Redis
 
 from app.core.settings import Settings
 from app.repositories.db_repo import DbRepo
@@ -32,9 +32,12 @@ scheduler = AsyncIOScheduler(jobstores=jobstores, timezone=pytz.timezone("Europe
 db_repo = DbRepo()
 db_service = DbService(db_repo)
 
-redis_repo = RedisRepo(
-    Redis(Settings.REDIS_HOST, Settings.REDIS_PORT, password=Settings.REDIS_PASSWORD, decode_responses=True)
-)
+redis_repo = RedisRepo(Redis(
+    host=Settings.REDIS_HOST,
+    port=Settings.REDIS_PORT,
+    password=Settings.REDIS_PASSWORD,
+    decode_responses=True,
+))
 redis_service = RedisService(redis_repo)
 
 coordinator = Coordinator(db_service, redis_service)

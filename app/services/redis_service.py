@@ -14,59 +14,59 @@ class RedisService:
     def __init__(self, repo: RedisRepo) -> None:
         self._repo = repo
 
-    def close_redis(self):
-        self._repo.close()
+    async def close_redis(self):
+        await self._repo.close()
 
-    def set_user_msg(self, chat_id: int, msg_id: int) -> None:
-        self._repo.set(f"msg:{chat_id}", msg_id)
+    async def set_user_msg(self, chat_id: int, msg_id: int) -> None:
+        await self._repo.set(f"msg:{chat_id}", msg_id)
 
-    def get_user_msg(self, chat_id: int) -> Optional[int]:
-        return self._repo.get(f"msg:{chat_id}")
+    async def get_user_msg(self, chat_id: int) -> Optional[int]:
+        return await self._repo.get(f"msg:{chat_id}")
 
-    def set_user_data(self, user_id: int, data: dict[Any, Any]) -> None:
+    async def set_user_data(self, user_id: int, data: dict[Any, Any]) -> None:
         logger.info(f"Setting data for {user_id=}")
-        self._repo.set(f"data:{user_id}", json.dumps(data))
+        await self._repo.set(f"data:{user_id}", json.dumps(data))
 
-    def set_user_liked_disliked(self, user_id: int, data: list[Record], liked: bool = True) -> None:
+    async def set_user_liked_disliked(self, user_id: int, data: list[Record], liked: bool = True) -> None:
         logger.info(f"Setting liked for {user_id=}")
         key = f"liked:{user_id}" if liked else f"disliked:{user_id}"
         serialized_data = [json.dumps(dict(r)) for r in data]
         if serialized_data:
-            self._repo.set_list(key, serialized_data)
+            await self._repo.set_list(key, serialized_data)
 
-    def delete_key(self, user_id: int, liked: bool = True) -> None:
+    async def delete_key(self, user_id: int, liked: bool = True) -> None:
         key = f"liked:{user_id}" if liked else f"disliked:{user_id}"
-        self._repo.delete_key(key)
+        await self._repo.delete_key(key)
 
-    def get_liked_disliked(
+    async def get_liked_disliked(
         self, user_id: int, start_idx: int, end_idx: int, liked: bool = True
     ) -> list[dict[str, Any]]:
         key = f"liked:{user_id}" if liked else f"disliked:{user_id}"
-        serialized_data = self._repo.get_list(key, start_idx, end_idx)
+        serialized_data = await self._repo.get_list(key, start_idx, end_idx)
         return [json.loads(d) for d in serialized_data]
 
-    def get_liked_disliked_count(self, user_id: int, liked: bool = True) -> int:
+    async def get_liked_disliked_count(self, user_id: int, liked: bool = True) -> int:
         key = f"liked:{user_id}" if liked else f"disliked:{user_id}"
-        return len(self._repo.get_list(key, 0, -1))
+        return len(await self._repo.get_list(key, 0, -1))
 
-    def get_user_data(self, user_id: int) -> dict[Any, Any]:
-        data = self._repo.get(f"data:{user_id}")
+    async def get_user_data(self, user_id: int) -> dict[Any, Any]:
+        data = await self._repo.get(f"data:{user_id}")
         return json.loads(data) if data is not None else {}
 
-    def set_user_data_params(self, user_id: int, params: dict[Any, Any]) -> None:
-        data = self.get_user_data(user_id)
+    async def set_user_data_params(self, user_id: int, params: dict[Any, Any]) -> None:
+        data = await self.get_user_data(user_id)
         for k, v in params.items():
             data[k] = v
-        self.set_user_data(user_id, data)
+        await self.set_user_data(user_id, data)
 
-    def get_keys(self, pattern="*") -> list[Any]:
-        return self._repo.get_keys(pattern)
+    async def get_keys(self, pattern="*") -> list[Any]:
+        return await self._repo.get_keys(pattern)
 
     @sync_log_decorator(logger)
-    def get_daily_count(self) -> int:
-        res = self._repo.get("daily_count")
+    async def get_daily_count(self) -> int:
+        res = await self._repo.get("daily_count")
         return int(res) if res else 0
 
     @sync_log_decorator(logger)
-    def set_daily_count(self, user_count: int) -> None:
-        self._repo.set("daily_count", user_count)
+    async def set_daily_count(self, user_count: int) -> None:
+        await self._repo.set("daily_count", user_count)

@@ -76,7 +76,7 @@ async def create_notification_task(
 @admin_router.callback_query(F.data == "stats")
 async def stats(callback: types.CallbackQuery, db_service: DbService, redis_service: RedisService) -> None:
     all_users_count = await db_service.get_users_count()
-    daily_count = redis_service.get_daily_count()
+    daily_count = await redis_service.get_daily_count()
     text = f"Cегодня {daily_count} новых пользователей\nВсего - {all_users_count}"
     await callback.message.answer(text)
     await callback.answer()

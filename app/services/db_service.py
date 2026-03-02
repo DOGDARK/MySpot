@@ -411,16 +411,16 @@ class DbService:
             logger.error(f"Error marking place as viewed: {e}")
 
     @async_log_decorator(logger)
-    async def mark_place_as_liked(self, user_id: int, place_name: str) -> None:
+    async def mark_place_as_liked(self, user_id: int, place_name: str, place_address: str) -> None:
         try:
-            await self._repo.mark_place_as_liked(user_id, place_name)
+            await self._repo.mark_place_as_liked(user_id, place_name, place_address)
         except Exception as e:
             logger.error(f"Error marking place as liked: {e}")
 
     @async_log_decorator(logger)
-    async def mark_place_as_disliked(self, user_id: int, place_name: str) -> None:
+    async def mark_place_as_disliked(self, user_id: int, place_name: str, place_address: str) -> None:
         try:
-            await self._repo.mark_place_as_disliked(user_id, place_name)
+            await self._repo.mark_place_as_disliked(user_id, place_name, place_address)
         except Exception as e:
             logger.error(f"Error marking place as disliked: {e}")
 

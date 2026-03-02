@@ -54,7 +54,7 @@ async def process_place_bad(callback_query: types.CallbackQuery, redis_service: 
     user_id = callback_query.from_user.id
 
     user = await db_service.get_user(user_id)
-    user_data = redis_service.get_user_data(user_id)
+    user_data = await redis_service.get_user_data(user_id)
     user_categories = user_data.get("selected_categories", [])
     user_wishes = user_data.get("selected_wishes", [])
     user_filters = user["filters"] if user else []
@@ -384,7 +384,7 @@ async def handle_liked_selection(
     places_per_page = 8
     start_idx = current_page * places_per_page
 
-    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx + places_per_page)
+    places = await redis_service.get_liked_disliked(user_id, start_idx, start_idx + places_per_page)
 
     place = places[place_index]
 
@@ -447,7 +447,7 @@ async def handle_disliked_selection(
     places_per_page = 8
     start_idx = current_page * places_per_page
 
-    places = redis_service.get_liked_disliked(user_id, start_idx, start_idx + places_per_page, False)
+    places = await redis_service.get_liked_disliked(user_id, start_idx, start_idx + places_per_page, False)
 
     place = places[place_index]
 
@@ -509,7 +509,7 @@ async def delete_from_liked(
 
     place_index = int(callback.data.split("_")[3])
 
-    places = redis_service.get_liked_disliked(user_id, place_index, place_index)
+    places = await redis_service.get_liked_disliked(user_id, place_index, place_index)
     place = places[0]
     place_name = place["name"]
     await coordinator.delete_liked_disliked(user_id, place_name)
@@ -528,7 +528,7 @@ async def delete_from_disliked(
 
     place_index = int(callback.data.split("_")[3])
 
-    places = redis_service.get_liked_disliked(user_id, place_index, place_index, False)
+    places = await redis_service.get_liked_disliked(user_id, place_index, place_index, False)
     place = places[0]
     place_name = place["name"]
     await coordinator.delete_liked_disliked(user_id, place_name, False)
@@ -574,14 +574,14 @@ async def reset_all_categories(
     user_id = callback.from_user.id
 
     # Сбрасываем все категории
-    if f"data:{user_id}" in redis_service.get_keys("data:*"):
-        redis_service.set_user_data_params(user_id, {"selected_categories": []})
+    if f"data:{user_id}" in await redis_service.get_keys("data:*"):
+        await redis_service.set_user_data_params(user_id, {"selected_categories": []})
 
     # Обновляем сообщение
 
     try:
         await callback.message.edit_text(
-            text=MsgsText.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id, redis_service)
+            text=MsgsText.CATEGORIES.value, reply_markup= await get_categories_keyboard(user_id, redis_service)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -591,7 +591,7 @@ async def reset_all_categories(
             text=MsgsText.CATEGORIES.value,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_categories_keyboard(user_id, redis_service),
+            reply_markup= await get_categories_keyboard(user_id, redis_service),
         )
 
     await callback.answer("Все категории сброшены")
@@ -605,14 +605,14 @@ async def reset_all_wishes(callback: types.CallbackQuery, redis_service: RedisSe
     user_id = callback.from_user.id
 
     # Сбрасываем все пожелания
-    if f"data:{user_id}" in redis_service.get_keys("data:*"):
-        redis_service.set_user_data_params(user_id, {"selected_wishes": []})
+    if f"data:{user_id}" in await redis_service.get_keys("data:*"):
+        await redis_service.set_user_data_params(user_id, {"selected_wishes": []})
 
     # Обновляем сообщение
 
     try:
         await callback.message.edit_text(
-            text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(user_id, redis_service)
+            text=MsgsText.WISHES.value, reply_markup= await get_wishes_keyboard(user_id, redis_service)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -622,7 +622,7 @@ async def reset_all_wishes(callback: types.CallbackQuery, redis_service: RedisSe
             text=MsgsText.WISHES.value,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_wishes_keyboard(user_id, redis_service),
+            reply_markup= await get_wishes_keyboard(user_id, redis_service),
         )
 
     await callback.answer("Все пожелания сброшены")
@@ -643,7 +643,7 @@ async def cmd_start(
     user_db_data = await db_service.get_user(user_id)
     if user_db_data:
         # Восстанавливаем настройки из базы данных
-        redis_service.set_user_data(
+        await redis_service.set_user_data(
             user_id,
             {
                 "selected_categories": list(set(user_db_data["categories"])),
@@ -665,7 +665,7 @@ async def cmd_start(
     else:
         # Создаем нового пользователя
         await coordinator.save_user(user_id)
-        redis_service.set_user_data(
+        await redis_service.set_user_data(
             user_id,
             {
                 "selected_categories": [],
@@ -778,11 +778,11 @@ async def show_places_main(callback: types.CallbackQuery, db_service: DbService,
             )
     else:
         # Если нет геолокации, показываем обычные рекомендации
-        redis_service.set_user_data_params(user_id, {"current_place_index": 0})
-        redis_service.set_user_data_params(user_id, {"current_offset": 0})
+        await redis_service.set_user_data_params(user_id, {"current_place_index": 0})
+        await redis_service.set_user_data_params(user_id, {"current_offset": 0})
 
         # Сохраняем места для пользователя
-        redis_service.set_user_data_params(user_id, {"places": places})
+        await redis_service.set_user_data_params(user_id, {"places": places})
 
         # Показываем первое место
         await show_place(user_id, callback.message.chat.id, 0, bot, db_service, redis_service)
@@ -798,8 +798,8 @@ async def view_nearby_places(
     callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
 ):
     user_id = callback.from_user.id
-    redis_service.set_user_data_params(user_id, {"current_place_index": 0})
-    redis_service.set_user_data_params(user_id, {"current_offset": 0})
+    await redis_service.set_user_data_params(user_id, {"current_place_index": 0})
+    await redis_service.set_user_data_params(user_id, {"current_offset": 0})
 
     # Получаем места с сортировкой по расстоянию
     places = await db_service.get_places_for_user(user_id, limit=400, offset=0, sort_by_distance=True)
@@ -825,7 +825,7 @@ async def view_nearby_places(
         return
 
     # Сохраняем места для пользователя
-    redis_service.set_user_data_params(user_id, {"places": places})
+    await redis_service.set_user_data_params(user_id, {"places": places})
 
     # Показываем первое место
     await show_place(user_id, callback.message.chat.id, 0, bot, db_service, redis_service)
@@ -838,8 +838,8 @@ async def view_recommended_places(
     callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot
 ):
     user_id = callback.from_user.id
-    redis_service.set_user_data_params(user_id, {"current_place_index": 0})
-    redis_service.set_user_data_params(user_id, {"current_offset": 0})
+    await redis_service.set_user_data_params(user_id, {"current_place_index": 0})
+    await redis_service.set_user_data_params(user_id, {"current_offset": 0})
 
     # Получаем места без сортировки по расстоянию
     places = await db_service.get_places_for_user(user_id, limit=400, offset=0, sort_by_distance=False)
@@ -865,7 +865,7 @@ async def view_recommended_places(
         return
 
     # Сохраняем места для пользователя
-    redis_service.set_user_data_params(user_id, {"places": places})
+    await redis_service.set_user_data_params(user_id, {"places": places})
 
     # Показываем первое место
     await show_place(user_id, callback.message.chat.id, 0, bot, db_service, redis_service)
@@ -880,7 +880,7 @@ async def show_categories_main(
     try:
         await callback.message.edit_text(
             text=MsgsText.CATEGORIES.value,
-            reply_markup=get_categories_keyboard(callback.from_user.id, redis_service),
+            reply_markup= await get_categories_keyboard(callback.from_user.id, redis_service),
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -890,7 +890,7 @@ async def show_categories_main(
             text=MsgsText.CATEGORIES.value,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_categories_keyboard(callback.from_user.id, redis_service),
+            reply_markup= await get_categories_keyboard(callback.from_user.id, redis_service),
         )
 
     await callback.answer()
@@ -1326,21 +1326,21 @@ async def handle_category_selection(
     user_id = callback.from_user.id
     category = callback.data
 
-    if f"data:{user_id}" not in redis_service.get_keys("data:*"):
-        redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
+    if f"data:{user_id}" not in await redis_service.get_keys("data:*"):
+        await redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
 
-    user_data = redis_service.get_user_data(user_id)
+    user_data = await redis_service.get_user_data(user_id)
     if category in user_data["selected_categories"]:
         user_data["selected_categories"].remove(category)
     else:
         user_data["selected_categories"].append(category)
-    redis_service.set_user_data(user_id, user_data)
+    await redis_service.set_user_data(user_id, user_data)
 
     # Обновляем сообщение с новым состоянием кнопок
 
     try:
         await callback.message.edit_text(
-            text=MsgsText.CATEGORIES.value, reply_markup=get_categories_keyboard(user_id, redis_service)
+            text=MsgsText.CATEGORIES.value, reply_markup= await get_categories_keyboard(user_id, redis_service)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -1351,7 +1351,7 @@ async def handle_category_selection(
             text=MsgsText.CATEGORIES.value,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_categories_keyboard(user_id, redis_service),
+            reply_markup= await get_categories_keyboard(user_id, redis_service),
         )
 
     await callback.answer()
@@ -1366,7 +1366,7 @@ async def confirm_categories(
 ):
     try:
         await callback.message.edit_text(
-            text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(callback.from_user.id, redis_service)
+            text=MsgsText.WISHES.value, reply_markup= await get_wishes_keyboard(callback.from_user.id, redis_service)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -1376,7 +1376,7 @@ async def confirm_categories(
             text=MsgsText.WISHES.value,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_wishes_keyboard(callback.from_user.id, redis_service),
+            reply_markup= await get_wishes_keyboard(callback.from_user.id, redis_service),
         )
 
     await callback.answer()
@@ -1392,23 +1392,23 @@ async def handle_wish_selection(
     user_id = callback.from_user.id
     wish = callback.data
 
-    if f"data:{user_id}" not in redis_service.get_keys("data:*"):
-        redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
+    if f"data:{user_id}" not in await redis_service.get_keys("data:*"):
+        await redis_service.set_user_data(user_id, {"selected_categories": [], "selected_wishes": []})
 
-    user_data = redis_service.get_user_data(user_id)
+    user_data = await redis_service.get_user_data(user_id)
 
     if wish in user_data["selected_wishes"]:
         user_data["selected_wishes"].remove(wish)
     else:
         user_data["selected_wishes"].append(wish)
 
-    redis_service.set_user_data(user_id, user_data)
+    await redis_service.set_user_data(user_id, user_data)
 
     # Обновляем сообщение
 
     try:
         await callback.message.edit_text(
-            text=MsgsText.WISHES.value, reply_markup=get_wishes_keyboard(user_id, redis_service)
+            text=MsgsText.WISHES.value, reply_markup= await get_wishes_keyboard(user_id, redis_service)
         )
     except Exception as e:
         logger.error(f"Error editing message: {e}")
@@ -1418,7 +1418,7 @@ async def handle_wish_selection(
             text=MsgsText.WISHES.value,
             bot=bot,
             redis_service=redis_service,
-            reply_markup=get_wishes_keyboard(user_id, redis_service),
+            reply_markup= await get_wishes_keyboard(user_id, redis_service),
         )
 
     await callback.answer()
@@ -1436,7 +1436,7 @@ async def confirm_wishes(
 ):
     user_id = callback.from_user.id
 
-    user_data = redis_service.get_user_data(user_id)
+    user_data = await redis_service.get_user_data(user_id)
     categories_count = len(user_data["selected_categories"])
     wishes_count = len(user_data["selected_wishes"])
 
@@ -1524,7 +1524,7 @@ async def back_to_main_menu(
 @base_router.callback_query(F.data.in_(["place_prev", "place_next"]))
 async def navigate_places(callback: types.CallbackQuery, redis_service: RedisService, db_service: DbService, bot: Bot):
     user_id = callback.from_user.id
-    user_data = redis_service.get_user_data(user_id)
+    user_data = await redis_service.get_user_data(user_id)
     current_index = user_data.get("current_place_index", 0)
     places = user_data.get("places", [])
 
@@ -1560,7 +1560,7 @@ async def navigate_places(callback: types.CallbackQuery, redis_service: RedisSer
             await callback.answer()
             return
 
-    redis_service.set_user_data_params(user_id, {"current_place_index": current_index})
+    await redis_service.set_user_data_params(user_id, {"current_place_index": current_index})
 
     # Показываем место
     await show_place(user_id, callback.message.chat.id, current_index, bot, db_service, redis_service)
